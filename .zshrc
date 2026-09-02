@@ -18,7 +18,6 @@ export PATH="$PATH:$HOME/.nix-profile/bin"
 
 # ── Initialization ────────────────────────────────────────────
 eval "$(mise activate zsh)"
-eval "$(wt config shell init zsh)"
 if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi
 
 # ── Aliases ───────────────────────────────────────────────────
@@ -27,7 +26,6 @@ alias ls='eza -1 --icons --group-directories-first'
 alias k='kubectl'
 alias tree='erd'
 alias pr="gh-dash"
-alias gd='hunk diff --watch'
 
 gr() {
   local root
@@ -117,6 +115,7 @@ export PATH
 # ── Completion ────────────────────────────────────────────────
 autoload -Uz compinit
 compinit
+eval "$(wt config shell init zsh)"
 
 # ── FZF ───────────────────────────────────────────────────────
 source <(fzf --zsh)
@@ -163,5 +162,3 @@ zle-line-init() {
 zle -N zle-line-init
 echo -ne '\e[5 q' # Use beam shape cursor on startup.
 preexec() { echo -ne '\e[5 q' ;} # Use beam shape cursor for each new prompt.
-
-if [ -e /home/sahand/.nix-profile/etc/profile.d/nix.sh ]; then . /home/sahand/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer

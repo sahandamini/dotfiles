@@ -7948,9 +7948,6 @@ url_api = "https://api.github.com/repos/earendil-works/pi/releases/assets/489434
 version = "2.89.1"
 backend = "pipx:azure-cli"
 
-[tools."pipx:azure-cli".options]
-uvx_args = "--prerelease=allow --overrides /home/sahand/.config/mise/azure-cli-overrides.txt"
-
 [[tools."pipx:basedpyright"]]
 version = "1.39.9"
 backend = "pipx:basedpyright"

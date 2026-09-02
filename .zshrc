@@ -3,7 +3,7 @@ export XDG_CONFIG_HOME="$HOME/.config"
 export XDG_DATA_HOME="$HOME/.local/share"
 export EDITOR='nvim'
 export VISUAL='nvim'
-if [[ -z "$TERM" ]]; then
+if [[ -z "$TERM" ]] || ! infocmp "$TERM" >/dev/null 2>&1; then
   export TERM=xterm-256color
 fi
 export OPENCODE_EXPERIMENTAL_OXFMT=1

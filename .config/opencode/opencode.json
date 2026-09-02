@@ -12,13 +12,7 @@
 	"permission": {
 		"*": "allow",
 		"bash": {
-			"*": "allow",
-			"jj workspace add": "deny",
-			"jj workspace add *": "deny",
-			"jj ws add": "deny",
-			"jj ws add *": "deny",
-			"wt switch --create *": "deny",
-			"wt switch -c *": "deny"
+			"*": "allow"
 		}
 	},
 	"formatter": {

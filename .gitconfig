@@ -1,6 +1,6 @@
 [user]
-    name = Aria Amini
-    email = amini5454@gmail.com
+    name = Sahand Amini
+    email = sahandamini@users.noreply.github.com
 
 [alias]
     lg = log --branches --remotes --tags --graph --oneline --decorate
@@ -18,31 +18,8 @@
 # Diff tools
 # ============================================
 
-[core]
-    pager = hunk pager
-
 [interactive]
     diffFilter = delta --color-only
 
-[diff]
-    tool = hunk
-
-[difftool "hunk"]
-    cmd = hunk-difftool "$LOCAL" "$REMOTE"
-
-[difftool]
-    prompt = false
-
 [credential "https://github.com"]
 	helper = !gh auth git-credential
-
-[credential "https://dev.azure.com"]
-	helper = !git-credential-manager-windows
-	useHttpPath = true
-
-[credential "https://*.visualstudio.com"]
-	helper = !git-credential-manager-windows
-
-[coderabbit]
- 	machineId = cli/3b6783e4de2f405aba3006a22ff8817a
-

@@ -4,7 +4,7 @@ set -euo pipefail
 
 # install.sh clones from GitHub only when ~/dotfiles is absent, so seeding a
 # copy of the mounted repo makes it exercise the local checkout instead.
-# Root copy: some repo files (jj metadata) are unreadable to other uids.
+# Root copy: some repository files are unreadable to other users.
 sudo cp -a /opt/dotfiles-src "$HOME/dotfiles"
 sudo chown -R test:test "$HOME/dotfiles"
 

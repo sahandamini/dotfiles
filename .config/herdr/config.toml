@@ -78,22 +78,10 @@ onboarding = false
 # close_workspace = "prefix+shift+d"
 
 [[keys.command]]
-key = "prefix+shift+a"
-type = "plugin_action"
-command = "aamini.jj.new"
-description = "JJ workspace: create"
-
-[[keys.command]]
-key = "prefix+a"
-type = "plugin_action"
-command = "aamini.jj.pick"
-description = "JJ workspace: switch"
-
-[[keys.command]]
-key = "prefix+d"
-type = "plugin_action"
-command = "aamini.jj.remove"
-description = "JJ workspace: remove"
+key = "prefix+alt+g"
+type = "pane"
+command = "lazygit"
+description = "Open Lazygit"
 # previous_workspace = "" # optional, unset by default
 # next_workspace = ""     # optional, unset by default
 # previous_agent = ""     # optional, unset by default
@@ -206,7 +194,7 @@ directory = "~/.herdr/workspaces"
 # accent = "cyan"
 
 [ui.sidebar.spaces]
-rows = [["state_icon", "workspace"], ["branch", "git_status", "$jj_status"]]
+rows = [["state_icon", "workspace"], ["branch", "git_status"]]
 
 [ui.toast]
 delivery = "terminal"

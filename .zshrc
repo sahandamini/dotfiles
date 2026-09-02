@@ -8,64 +8,30 @@ if [[ -z "$TERM" ]]; then
 fi
 export OPENCODE_EXPERIMENTAL_OXFMT=1
 export OLLAMA_HOST="http://127.0.0.1:11434"
-# Global-only mise setting (kept out of .config/mise/config.toml so jj
-# workspace copies of that file loaded as project configs don't warn).
+# Global-only mise setting for Herdr workspace copies.
 export MISE_TRUSTED_CONFIG_PATHS="$HOME/.herdr/worktrees/:$HOME/.herdr/workspaces/"
 
 # ── Path ──────────────────────────────────────────────────────
 export PATH="$PATH:/usr/sbin:/sbin"
 export PATH="$PATH:$HOME/.local/bin"
 export PATH="$PATH:$HOME/.nix-profile/bin"
-export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
 
 # ── Initialization ────────────────────────────────────────────
 eval "$(mise activate zsh)"
+eval "$(wt config shell init zsh)"
 if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi
 
 # ── Aliases ───────────────────────────────────────────────────
-alias lg='jjui'
+alias lg='lazygit'
 alias ls='eza -1 --icons --group-directories-first'
 alias k='kubectl'
 alias tree='erd'
 alias pr="gh-dash"
 alias gd='hunk diff --watch'
 
-jjui() {
-  local result_file destination exit_code
-  result_file="$(mktemp "${TMPDIR:-/tmp}/jjui-workspace.XXXXXX")" || return
-
-  JJUI_WORKSPACE_RESULT_FILE="$result_file" command jjui "$@"
-  exit_code=$?
-  destination="$(<"$result_file")"
-  command rm -f -- "$result_file"
-
-  if [[ -n "$destination" && -d "$destination" ]]; then
-    builtin cd -- "$destination" || return
-  fi
-  return "$exit_code"
-}
-
-wt() {
-  if [[ "$1" == "switch" ]]; then
-    local output exit_code destination result_file
-    result_file="$(mktemp "${TMPDIR:-/tmp}/wt-result.XXXXXX")" || return
-    output="$(WT_RESULT_FILE="$result_file" command wt "$@")"
-    exit_code=$?
-    [[ -n "$output" ]] && print -r -- "$output"
-    destination="$(<"$result_file")"
-    command rm -f -- "$result_file"
-    if [[ -n "$destination" ]]; then
-      print -r -- "$destination"
-      builtin cd -- "$destination"
-    fi
-    return "$exit_code"
-  fi
-  command wt "$@"
-}
-
 gr() {
   local root
-  root=$(git rev-parse --show-toplevel 2>/dev/null) || root=$(jj root 2>/dev/null) || return 1
+  root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
   cd "$root"
 }
 
@@ -197,3 +163,5 @@ zle-line-init() {
 zle -N zle-line-init
 echo -ne '\e[5 q' # Use beam shape cursor on startup.
 preexec() { echo -ne '\e[5 q' ;} # Use beam shape cursor for each new prompt.
+
+if [ -e /home/sahand/.nix-profile/etc/profile.d/nix.sh ]; then . /home/sahand/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer

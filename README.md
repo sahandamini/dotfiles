@@ -5,7 +5,7 @@ Personal machine setup managed with GNU stow and mise.
 Bootstrap a fresh machine with:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/aria-amini/dotfiles/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sahandamini/dotfiles/main/install.sh)
 ```
 
 ## Layout
@@ -13,13 +13,12 @@ bash <(curl -fsSL https://raw.githubusercontent.com/aria-amini/dotfiles/main/ins
 | Path | What it is |
 | --- | --- |
 | `.config/`, `.zshrc`, … | stowed into `$HOME` |
-| `tools/` | one directory per CLI capability (`dev`, `jj-ws`, `imgview`, `pix`) |
+| `tools/` | one directory per CLI capability (`dev`, `imgview`, `pix`) |
 | `apps/tanstack` | copier template scaffolded by `new-tanstack-app` |
 | `.config/mise/config.toml` | machine-wide toolchains and global tasks |
 
-Tools reach PATH two ways: python CLIs as editable uv tools, pix via a launcher
-script written by its install task. Everything else in `.local/bin` is invoked
-by other programs (git difftools).
+Tools reach PATH two ways: Python CLIs use editable uv tools, and pix uses an
+install-task launcher.
 
 ## Commands
 

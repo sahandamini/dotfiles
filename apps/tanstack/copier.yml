@@ -89,7 +89,7 @@ _exclude:
   - '{% if not google_auth %}src/lib/auth/use-google-auth.ts{% endif %}'
 
 _tasks:
-  - '[ -d .jj ] || jj git init --colocate 2>/dev/null || jj git init'
+  - '[ -d .git ] || git init -b main'
   # copier materializes parent dirs of _excluded files; drop the husks
   - 'find src e2e -depth -type d -empty -delete'
 

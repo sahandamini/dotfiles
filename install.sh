@@ -22,7 +22,7 @@ gum style \
   --border double --border-foreground 212 --padding "1 3" --margin "1 0" \
   --align center --width 44 \
   "$(gum style --bold --foreground 212 'dotfiles')" \
-  "github.com/aria-amini/dotfiles"
+  "github.com/sahandamini/dotfiles"
 
 step_total=9
 step_current=0
@@ -38,7 +38,7 @@ step() {
 step "Dotfiles"
 if [ ! -d "$HOME/dotfiles" ]; then
   gum spin --title "Cloning dotfiles..." -- \
-    git clone "https://github.com/aria-amini/dotfiles.git" "$HOME/dotfiles"
+    git clone "https://github.com/sahandamini/dotfiles.git" "$HOME/dotfiles"
 else
   gum style --foreground 245 "  already cloned"
 fi
@@ -48,7 +48,7 @@ step "Apt"
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common xz-utils
 
-# git (latest stable from ppa, jj requires >= 2.41)
+# git (latest stable from ppa)
 step "Git"
 if command -v git &> /dev/null && grep -qs "git-core" /etc/apt/sources.list.d/*; then
   gum style --foreground 245 "  already installed ($(git --version))"

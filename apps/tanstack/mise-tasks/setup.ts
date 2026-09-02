@@ -91,38 +91,11 @@ function run(command: string, args: string[]): string {
 
 function detectWorkspace(): { branch: string; worktree: string } {
 	try {
-		const root = realpathSync(run('jj', ['workspace', 'root']))
-		const names = run('jj', [
-			'workspace',
-			'list',
-			'-T',
-			'self.name() ++ "\\n"',
-		]).split('\n')
-		const branch = names.find((name) => {
-			try {
-				return (
-					realpathSync(run('jj', ['workspace', 'root', '--name', name])) ===
-					root
-				)
-			} catch {
-				return false
-			}
-		})
-
-		if (!branch) throw new Error('Could not identify the current jj workspace')
-		return { branch, worktree: basename(root) }
-	} catch (error) {
-		if (error instanceof Error && error.message.startsWith('Could not')) {
-			throw error
-		}
-	}
-
-	try {
 		const root = realpathSync(run('git', ['rev-parse', '--show-toplevel']))
 		const branch = run('git', ['branch', '--show-current']) || basename(root)
 		return { branch, worktree: basename(root) }
 	} catch {
-		throw new Error('Run setup from inside a jj workspace or Git worktree')
+		throw new Error('Run setup from inside a Git worktree')
 	}
 }
 
@@ -206,12 +179,9 @@ function readEnvFile(path: string): Record<string, string> {
 }
 
 function defaultWorkspaceRoot(): string {
-	try {
-		return realpathSync(run('jj', ['workspace', 'root', '--name', 'default']))
-	} catch {
-		// not a jj repo — the current directory is the root
-		return realpathSync('.')
-	}
+	const worktrees = run('git', ['worktree', 'list', '--porcelain'])
+	const primary = worktrees.match(/^worktree (.+)$/m)?.[1]
+	return realpathSync(primary ?? '.')
 }
 
 function pitchfork(args: string[]): string {
@@ -234,7 +204,7 @@ function proxyTld(): string {
 }
 
 // Registers a stable https://<slug>.<tld> URL for the project. Only the
-// default workspace registers; other jj workspaces are reached via
+// The primary worktree registers. Other worktrees are reached via
 // https://<workspace>.<slug>.<tld> through `proxy.worktree` auto-discovery.
 // Best effort: pitchfork is a local convenience, never a bootstrap blocker.
 // `proxy trust` needs sudo, so it stays a one-time manual step.

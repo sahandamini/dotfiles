@@ -10,7 +10,7 @@ minimum_release_age = "1d"
 idiomatic_version_file_enable_tools = ["node"]
 # trusted_config_paths is set via MISE_TRUSTED_CONFIG_PATHS in .zshrc: it is a
 # global-only setting and mise warns when this file is loaded as a project
-# config inside jj workspace copies of the dotfiles repo.
+# config inside workspace copies of the dotfiles repo.
 
 [plugins]
 nix = "https://github.com/jbadeau/mise-nix.git"
@@ -91,11 +91,7 @@ imagemagick = "latest"
 "nix:chafa" = "latest"
 
 # VCS
-"github:sjawhar/jj" = "v0.43.0-sami.20260722-194522"
-"github:aria-amini/jj-ryu" = "0.2.3"
-"nix:jjui" = "latest"
-"npm:hunkdiff" = "latest"
-"difftastic" = "latest"
+"aqua:max-sixty/worktrunk" = "latest"
 "github-cli" = "latest"
 "nix:gh-dash" = "latest"
 

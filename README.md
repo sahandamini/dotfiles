@@ -36,6 +36,10 @@ mise run new-tanstack-app <dir>   # scaffold a new TanStack Start app
 
 List everything with `mise tasks --all`.
 
+## Updating from upstream
+
+See [UPDATING.md](UPDATING.md) for the review, tool-selection, and sync process.
+
 Create the managed Lima instance configuration with:
 
 ```bash

@@ -6,6 +6,9 @@ functionality.
 
 # Fork workflow
 
+For this dotfiles fork, read `UPDATING.md` before each upstream sync. Follow its
+tool review and user clarification steps.
+
 Forks use two remotes: `origin` (the fork) and `upstream` (the source repo).
 Never push to `upstream`. Local `main` is the fork's source of truth. Sync from
 upstream by merge. Never rebase `main` onto upstream.

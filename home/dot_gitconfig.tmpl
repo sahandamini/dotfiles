@@ -1,0 +1,50 @@
+[user]
+    name = Sahand Amini
+    email = sahand775@gmail.com
+
+[alias]
+    lg = log --branches --remotes --tags --graph --oneline --decorate
+
+[init]
+    defaultBranch = main
+
+[rebase]
+    updateRefs = true
+
+[merge]
+    conflictStyle = zdiff3
+
+# ============================================
+# Diff tools
+# ============================================
+
+[interactive]
+    diffFilter = delta --color-only
+
+[credential "https://github.com"]
+	helper =
+	helper = !gh auth git-credential
+
+[credential "https://gist.github.com"]
+	helper =
+	helper = !gh auth git-credential
+
+{{ if .work -}}
+[credential "https://dev.azure.com"]
+{{- if .isWSL }}
+	helper = !'/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe'
+{{- else }}
+	helper = manager
+{{- end }}
+	useHttpPath = true
+
+[credential "https://*.visualstudio.com"]
+{{- if .isWSL }}
+	helper = !'/mnt/c/Program Files/Git/mingw64/bin/git-credential-manager.exe'
+{{- else }}
+	helper = manager
+{{- end }}
+{{- end }}
+
+[coderabbit]
+	machineId = cli/3b6783e4de2f405aba3006a22ff8817a

@@ -1,0 +1,115 @@
+[env]
+_.file = [{ path = "~/.env" }, { path = "~/.env.local", required = false }]
+# mise-nix must only contribute PATH entries. PostgreSQL injects build flags
+# that break Rust builds.
+MISE_NIX_ENV_MODE = "path-only"
+
+[settings]
+experimental = true
+minimum_release_age = "1d"
+idiomatic_version_file_enable_tools = ["node"]
+
+[plugins]
+nix = "https://github.com/jbadeau/mise-nix.git"
+vite-plus = "https://github.com/markmals/mise-vite-plus"
+
+[tools]
+python = "3.14"
+uv = "latest"
+"pipx:basedpyright" = "latest"
+"pipx:ruff" = "latest"
+
+rust = "latest"
+
+dotnet = "10"
+
+vite-plus = "latest"
+node = "22"
+bun = "latest"
+"npm:corepack" = "latest"
+"npm:pnpm" = "latest"
+"npm:typescript" = "latest"
+
+# LSPs
+# TODO: only needed for `tsgo --lsp` (TS7 language server). Stable typescript@7
+# ships tsc but no LSP binary yet — drop this once TS 7.1 (~Oct 2026) folds the
+# language server into the main `typescript` package. Referenced by opencode.json.
+"npm:@typescript/native-preview" = "7.0.0-dev.20260701.1"
+"npm:@tailwindcss/language-server" = "latest"
+"npm:vscode-langservers-extracted" = "latest"
+"github:LuaLS/lua-language-server" = "3.18.2"
+"npm:markdownlint-cli2" = "latest"
+"npm:oxfmt" = "latest"
+"github:JohnnyMorganz/StyLua" = "latest"
+"github:tamasfe/taplo" = "latest"
+tflint = "0.63.1"
+hadolint = "2.14.0"
+"npm:jsonlint" = "1.6.3"
+shellcheck = "latest"
+
+# Shell
+"github:herdrdev/herdr" = "0.8.2"
+"oh-my-posh" = "latest"
+
+# AI
+"opencode" = "latest"
+claude = "latest"
+"npm:@openai/codex" = "latest"
+pi = "latest"
+"npm:playwriter" = "latest"
+"npm:lavish-axi" = "latest"
+"npm:greptile" = "latest"
+
+# nvim
+"neovim" = "0.12.2"
+"nix:tree-sitter" = "latest"
+"nix:gnumake" = "latest"
+"nix:unzip" = "latest"
+"nix:xclip" = "latest"
+make = "latest"
+"nix:gcc" = "15.2.0"
+
+# database
+"nix:postgresql_18" = "latest"
+sqlite = "latest"
+
+# images
+imagemagick = "latest"
+"github:danielgatis/imgcat" = "latest"
+"nix:chafa" = "latest"
+
+# VCS
+"aqua:max-sixty/worktrunk" = "latest"
+"difftastic" = "latest"
+"github-cli" = "latest"
+"nix:gh-dash" = "latest"
+# 1.12.x ships no provenance (1.1.10 did), so aube no-downgrade blocks it.
+# Pinned to match the imdbgraph CI action; bump both together after review.
+"npm:@alibaba-group/open-code-review" = { version = "1.12.5", trust_policy_excludes = ["@alibaba-group/open-code-review@1.12.5"] }
+
+# Devops
+"pipx:azure-cli" = { version = "latest", uvx_args = "--prerelease=allow --overrides {{ env.HOME }}/.config/mise/azure-cli-overrides.txt" }
+kubectl = "latest"
+helm = "latest"
+pulumi = "latest"
+railway = "5.54.1"
+"npm:varlock" = "1.11.0"
+
+# CLIs 
+"bat" = "latest"
+jq = "latest"
+"fd" = "latest"
+"nix:eza" = "latest"
+"just" = "latest"
+"fzf" = "latest"
+"yazi" = "latest"
+"zoxide" = "latest"
+"delta" = "latest"
+"ripgrep" = "latest"
+"nix:erdtree" = "latest"
+"lazygit" = "latest"
+"pipx:copier" = "latest"
+pitchfork = "2.21.0"
+
+"npm:chrome-devtools-axi" = "latest"
+"github:alexpasmantier/television" = "latest"

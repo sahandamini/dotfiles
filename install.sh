@@ -24,68 +24,137 @@ gum style \
   "$(gum style --bold --foreground 212 'dotfiles')" \
   "github.com/sahandamini/dotfiles"
 
-step_total=9
-step_current=0
-current_step="bootstrap"
-trap 'gum style --foreground 196 --bold "✗ Failed during: $current_step (exit $?)" >&2' ERR
-step() {
-  step_current=$((step_current + 1))
-  current_step="$1"
-  gum style --margin "1 0 0 0" --bold --foreground 99 "▸ [$step_current/$step_total] $1"
+section_total=6
+section_current=0
+current_section="bootstrap"
+verbose=false
+if [[ "${1:-}" == "--verbose" ]]; then
+  verbose=true
+  shift
+fi
+if (( $# )); then
+  gum style --foreground 196 "Usage: $0 [--verbose]" >&2
+  exit 2
+fi
+trap 'gum style --foreground 196 --bold "✗ Failed during: $current_section (exit $?)" >&2' ERR
+section() {
+  section_current=$((section_current + 1))
+  current_section="$1"
+  gum style --margin "1 0 0 0" --bold --foreground 99 "▸ [$section_current/$section_total] $1"
+}
+task() {
+  gum style --bold --foreground 245 "  $1"
+}
+complete_task() {
+  local status
+  if [[ -n "${2:-}" ]]; then
+    printf -v status '  ✓ %-22s %s' "$1" "$2"
+  else
+    status="  ✓ $1"
+  fi
+  gum style --foreground 82 "$status"
+}
+task_detail() {
+  local detail
+  printf -v detail '    %-22s %s' "" "$1"
+  gum style --foreground 245 "$detail"
+}
+run_command() {
+  local title="$1"
+  shift
+
+  if [[ "$verbose" == true ]]; then
+    task "$title"
+    "$@"
+  else
+    gum spin --show-error --title "  $title..." -- "$@"
+  fi
+}
+run_task() {
+  local title="$1"
+  shift
+  run_command "$title" "$@"
+  complete_task "$title"
+}
+show_command_version() {
+  local label="$1"
+  local field="$2"
+  local line
+  local -a fields
+  shift 2
+  IFS= read -r line < <("$@" 2>&1)
+  read -r -a fields <<< "$line"
+  complete_task "$label" "${fields[$field]}"
+}
+ensure_sudo() {
+  if sudo -n true 2> /dev/null; then
+    return
+  fi
+  task "Administrator authentication"
+  sudo -v
 }
 
-# clone: dotfiles
-step "Dotfiles"
-if [ ! -d "$HOME/dotfiles" ]; then
-  gum spin --title "Cloning dotfiles..." -- \
-    git clone "https://github.com/sahandamini/dotfiles.git" "$HOME/dotfiles"
-else
-  gum style --foreground 245 "  already cloned"
-fi
-
-# apt (fresh boxes have empty package lists and no add-apt-repository)
-step "Apt"
-sudo apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common xz-utils
+# System
+section "System"
+ensure_sudo
+run_task "Updating package index" sudo apt-get update
+run_command "Installing system packages" sudo DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common xz-utils zsh
+show_command_version "APT" 1 apt-get --version
+show_command_version "Zsh" 1 zsh --version
+show_command_version "XZ" 3 xz --version
 
 # git (latest stable from ppa)
-step "Git"
 if command -v git &> /dev/null && grep -qs "git-core" /etc/apt/sources.list.d/*; then
-  gum style --foreground 245 "  already installed ($(git --version))"
+  show_command_version "Git" 2 git --version
 else
-  gum spin --title "Installing git from ppa..." -- bash -c '
+  run_command "Installing Git" bash -c '
     sudo add-apt-repository -y ppa:git-core/ppa
     sudo DEBIAN_FRONTEND=noninteractive apt install git -y
   '
+  show_command_version "Git" 2 git --version
 fi
 
-# stow
-step "Stow"
-if command -v stow &> /dev/null && command -v zsh &> /dev/null; then
-  gum style --foreground 245 "  already installed"
-else
-  gum spin --title "Installing stow and zsh..." -- \
-    sudo DEBIAN_FRONTEND=noninteractive apt install stow zsh -y
+if [ ! -d "$HOME/dotfiles" ]; then
+  run_command "Cloning dotfiles" git clone "https://github.com/sahandamini/dotfiles.git" "$HOME/dotfiles"
 fi
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
-if [ -f "$HOME/.zshrc" ]; then
-  rm "$HOME/.zshrc"
+if ! command -v chezmoi &> /dev/null; then
+  run_command "Installing chezmoi" sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
 fi
-gum spin --title "Linking dotfiles..." -- bash -c "
-  cd \"$HOME/dotfiles\"
-  stow --restow --target=\"$HOME\" .
-"
+show_command_version "Chezmoi" 2 chezmoi --version
+# Remove old Stow links into the repository, including relative links.
+find "$HOME" -maxdepth 1 -type l -exec bash -c '
+  for link do
+    target="$(readlink -f "$link")" || continue
+    case "$target" in
+      "$HOME/dotfiles/home"|"$HOME/dotfiles/home/"*) ;;
+      "$HOME/dotfiles/"*) rm -- "$link" ;;
+    esac
+  done
+' bash {} +
+for directory in "$HOME/.config" "$HOME/.local" "$HOME/.ssh"; do
+  [ -d "$directory" ] || continue
+  find "$directory" -type l -exec bash -c '
+    for link do
+      target="$(readlink -f "$link")" || continue
+      case "$target" in
+        "$HOME/dotfiles/home"|"$HOME/dotfiles/home/"*) ;;
+        "$HOME/dotfiles/"*) rm -- "$link" ;;
+      esac
+    done
+  ' bash {} +
+done
+task "Applying dotfiles"
+chezmoi init --source "$HOME/dotfiles" --apply
+complete_task "Applying dotfiles"
 
-# nix
-step "Nix"
 if ! command -v nix &> /dev/null; then
-  sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --no-daemon
+  run_command "Installing Nix" bash -c "sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --no-daemon"
   # shellcheck source=/dev/null
   . "$HOME/.nix-profile/etc/profile.d/nix.sh"
-else
-  gum style --foreground 245 "  already installed"
 fi
+show_command_version "Nix" 2 nix --version
 # Nix adds this marked line to shell profiles. The script sources Nix itself,
 # and the managed zshrc already adds the Nix profile bin directory to PATH.
 for profile in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
@@ -93,52 +162,128 @@ for profile in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.prof
   sed -i '/# added by Nix installer[[:space:]]*$/d' "$profile"
 done
 
-# mise
-step "Mise"
 if command -v mise &> /dev/null; then
-  gum style --foreground 245 "  already installed"
+  :
 else
-  gum spin --title "Installing mise..." -- \
-    bash -c 'curl -fsSL https://mise.run | sh'
+  run_command "Installing mise" bash -c 'curl -fsSL https://mise.run | sh'
 fi
-mise_activation="eval \"\$($HOME/.local/bin/mise activate bash)\""
-grep -Fqx "$mise_activation" "$HOME/.bashrc" || printf '%s\n' "$mise_activation" >> "$HOME/.bashrc"
 eval "$(mise activate bash)"
-mise i
-gum spin --title "Trusting dotfiles config..." -- \
-  mise trust -y "$HOME/dotfiles/mise.toml"
-mise -C "$HOME/dotfiles" install --monorepo
-mise -C "$HOME/dotfiles" //:install
+show_command_version "Mise" 0 mise --version
 
-# tailscale (system daemon; falls back to `mise run tailscaled` without systemd)
-step "Tailscale"
+if ! mise where github-cli &> /dev/null; then
+  run_command "Installing GitHub CLI" mise install --quiet github-cli
+fi
+show_command_version "GitHub CLI" 2 gh --version
+if gh auth status &> /dev/null; then
+  task_detail "$(gh api user --jq .login)"
+elif [ -t 0 ]; then
+  task "GitHub authentication"
+  gh auth login --web --git-protocol https
+  task_detail "$(gh api user --jq .login)"
+else
+  gum style --foreground 214 "  authentication deferred: run gh auth login --web"
+fi
+mise --quiet trust -y "$HOME/dotfiles/mise.toml"
+run_task "Linking Vite+ plugin" mise plugin link --force vite-plus "$HOME/dotfiles/tools/mise-vite-plus"
+
+# Developer Tools
+section "Developer Tools"
+run_task "Installing managed tools" mise install --quiet
+run_task "Installing repository tools" mise -C "$HOME/dotfiles" install --quiet --monorepo
+run_task "Configuring repository tools" mise -C "$HOME/dotfiles" --quiet //:install
+if [ -f "$HOME/ms-scripts/packages/ms-scripts/pyproject.toml" ]; then
+  run_task "Installing Microsoft scripts" uv tool install \
+    --python 3.14 \
+    --editable \
+    --reinstall \
+    "$HOME/ms-scripts/packages/ms-scripts"
+fi
+
+# Docker
+section "Docker"
+docker_group_changed=false
+if command -v docker &> /dev/null; then
+  show_command_version "Docker" 2 docker --version
+else
+  run_command "Installing Docker" bash -c '
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    . /etc/os-release
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt-get update
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  '
+  show_command_version "Docker" 2 docker --version
+fi
+if id -nG "$USER" | grep -qw docker; then
+  complete_task "Docker group"
+else
+  run_task "Adding user to docker group" sudo usermod -aG docker "$USER"
+  docker_group_changed=true
+fi
+if [ -d /run/systemd/system ]; then
+  run_task "Enabling Docker" sudo systemctl enable --now docker
+else
+  gum style --foreground 245 "  no systemd, start dockerd manually (use: sudo dockerd)"
+fi
+
+# Connectivity
+section "Connectivity"
 if [ -d /run/systemd/system ]; then
   if ! dpkg -s tailscale &> /dev/null; then
-    gum spin --title "Installing tailscale..." -- \
-      bash -c 'curl -fsSL https://tailscale.com/install.sh | sh'
+    run_task "Installing Tailscale" bash -c 'curl -fsSL https://tailscale.com/install.sh | sh'
   else
-    gum style --foreground 245 "  already installed"
+    complete_task "Tailscale"
   fi
-  gum spin --title "Enabling tailscaled..." -- \
-    sudo systemctl enable --now tailscaled
+  run_task "Enabling Tailscale" sudo systemctl enable --now tailscaled
+else
+  gum style --foreground 245 "  no systemd, skipping (use: mise -C ~/dotfiles run tailscaled)"
+fi
+
+if [ -d /run/systemd/system ]; then
   if ! sudo tailscale status &> /dev/null; then
     gum style \
       --border rounded --border-foreground 214 --padding "0 3" --margin "1 0" \
       "$(gum style --bold --foreground 214 'Tailscale authentication required:')" \
       "open the login link from the command below"
     sudo tailscale up
+  else
+    complete_task "Tailscale authenticated"
   fi
   if sudo tailscale status &> /dev/null; then
-    sudo tailscale set --operator="$USER"
+    run_task "Configuring Tailscale operator" sudo tailscale set --operator="$USER"
   fi
 else
-  gum style --foreground 245 "  no systemd, skipping (use: mise -C ~/dotfiles run tailscaled)"
+  gum style --foreground 245 "  no systemd, skipping"
 fi
 
-# t3 code (systemd user service with lingering; needs tailscale for remote pairing)
-# npx instead of mise npm backend: the @pierre/* deps fail mise's aube trust policy
-# system gcc over mise gcc: node-pty must link against system glibc, not nix glibc
-step "T3 Code"
+if [ -d /run/systemd/system ]; then
+  pitchfork_host="${PITCHFORK_PROXY_HOST:-}"
+  if [[ -z "$pitchfork_host" && -t 0 ]]; then
+    pitchfork_access="$(gum choose \
+      --header "Where will you open local app URLs?" \
+      "On this machine" \
+      "From another machine")"
+    if [[ "$pitchfork_access" == "From another machine" ]]; then
+      pitchfork_host="0.0.0.0"
+    else
+      pitchfork_host="127.0.0.1"
+    fi
+  fi
+  if [[ -z "$pitchfork_host" ]] && sudo tailscale status &> /dev/null; then
+    pitchfork_host="0.0.0.0"
+  fi
+  pitchfork_host="${pitchfork_host:-127.0.0.1}"
+  gum style --foreground 245 \
+    "  Pitchfork installs a boot service and a local TLS certificate authority."
+  run_task "Configuring Pitchfork URLs" mise run setup-pitchfork "$pitchfork_host"
+else
+  gum style --foreground 245 "  no systemd, skipping Pitchfork URL setup"
+fi
+
+# Applications
+section "Applications"
 if [ ! -d /run/systemd/system ]; then
   gum style --foreground 245 "  no systemd, skipping"
 else
@@ -150,28 +295,29 @@ else
       '{providers: {opencode: {enabled: true, binaryPath: $binary_path}}}' \
       > "$t3_settings"
   fi
+  node_bin_dir="$(dirname "$(mise -C "$HOME/dotfiles" which node)")"
+  if [ ! -x /usr/bin/g++ ]; then
+    run_task "Installing build tools" sudo DEBIAN_FRONTEND=noninteractive apt install -y build-essential
+  fi
   if [ -f "$HOME/.config/systemd/user/t3code.service" ]; then
-    gum style --foreground 245 "  already installed"
+    run_task "Updating T3 Code" \
+      env PATH="$node_bin_dir:/usr/bin:/bin" CC=/usr/bin/gcc CXX=/usr/bin/g++ NPM_CONFIG_CACHE="$HOME/.cache/npm-t3" \
+      "$node_bin_dir/npx" --yes t3@0.0.40 service update
   else
-    if [ ! -x /usr/bin/g++ ]; then
-      gum spin --title "Installing build-essential..." -- \
-        sudo DEBIAN_FRONTEND=noninteractive apt install -y build-essential
-    fi
-    node_bin_dir="$(dirname "$(mise -C "$HOME/dotfiles" which node)")"
-    gum spin --title "Installing t3 service..." -- \
-      env PATH="/usr/bin:/bin:$node_bin_dir" "$node_bin_dir/npx" -y t3@nightly service install
+    run_task "Installing T3 Code" \
+      env PATH="$node_bin_dir:/usr/bin:/bin" CC=/usr/bin/gcc CXX=/usr/bin/g++ NPM_CONFIG_CACHE="$HOME/.cache/npm-t3" \
+      "$node_bin_dir/npx" --yes t3@0.0.40 service install
   fi
 fi
 
-# zsh
-step "Shell"
+# Finish
+section "Finish"
 zsh_path="$(command -v zsh)"
 shell_changed=false
 if [ "$(getent passwd "$USER" | cut -d: -f7)" = "$zsh_path" ]; then
-  gum style --foreground 245 "  already default"
+  complete_task "Zsh is the default shell"
 else
-  gum spin --title "Setting zsh as default shell..." -- \
-    sudo usermod -s "$zsh_path" "$USER"
+  run_task "Setting Zsh as the default shell" sudo usermod -s "$zsh_path" "$USER"
   shell_changed=true
 fi
 
@@ -186,14 +332,20 @@ if command -v tailscale &> /dev/null && ! sudo tailscale status &> /dev/null; th
     "run: sudo tailscale up" \
     "then open the login link it prints"
 fi
+if [ "$docker_group_changed" = true ]; then
+  gum style \
+    --border rounded --border-foreground 214 --padding "0 3" --margin "1 0" \
+    "$(gum style --bold --foreground 214 'Docker group:')" \
+    "log out and back in to run docker without sudo"
+fi
 if [ -f "$HOME/.config/systemd/user/t3code.service" ]; then
   gum style \
     --border rounded --border-foreground 214 --padding "0 3" --margin "1 0" \
     "$(gum style --bold --foreground 214 'Pair a device:')" \
-    "run: t3 pair --tailscale" \
+    "run: t3 pair --tailscale --tailscale-serve-port 8443" \
     "then scan the QR code from your phone"
 fi
 
 if [ "$shell_changed" = true ]; then
-  gum confirm "Log out is required for zsh. Open a new shell now?" && exec zsh || true
+  gum confirm "Reboot now to apply zsh as the login shell?" && sudo reboot || true
 fi

@@ -179,9 +179,7 @@ function readEnvFile(path: string): Record<string, string> {
 }
 
 function defaultWorkspaceRoot(): string {
-	const worktrees = run('git', ['worktree', 'list', '--porcelain'])
-	const primary = worktrees.match(/^worktree (.+)$/m)?.[1]
-	return realpathSync(primary ?? '.')
+	return realpathSync('.')
 }
 
 function pitchfork(args: string[]): string {
@@ -203,9 +201,7 @@ function proxyTld(): string {
 	}
 }
 
-// Registers a stable https://<slug>.<tld> URL for the project. Only the
-// The primary worktree registers. Other worktrees are reached via
-// https://<workspace>.<slug>.<tld> through `proxy.worktree` auto-discovery.
+// Registers a stable https://<slug>.<tld> URL for the project.
 // Best effort: pitchfork is a local convenience, never a bootstrap blocker.
 // `proxy trust` needs sudo, so it stays a one-time manual step.
 function registerProxySlug(mainRoot: string): string {
@@ -224,7 +220,7 @@ function registerProxySlug(mainRoot: string): string {
 }
 
 // Ports are stable once assigned: only regenerate when the env file is
-// absent or belongs to another worktree (wt copy-ignored clones the default
+// absent or belongs to another worktree (wt copy-ignored clones the main
 // workspace's file into new workspaces, which must not keep its ports —
 // and re-running setup here must not move this workspace's existing
 // database or registered OAuth redirect URIs out from under it).
@@ -258,12 +254,17 @@ function main(): void {
 	const mainRoot = defaultWorkspaceRoot()
 	const tld = proxyTld()
 	const proxySlug = registerProxySlug(mainRoot)
+	const proxyHost =
+		worktree === proxySlug
+			? `${proxySlug}.${tld}`
+			: `${worktree}.${proxySlug}.${tld}`
 
 	updateEnvFile(
 		'.env.development.local',
 		[
 			{
 				APP_PORT: String(appPort),
+				BASE_URL: `https://${proxyHost}`,
 			},
 			{
 				POSTGRES_PORT: String(postgresPort),
@@ -297,10 +298,6 @@ function main(): void {
 	console.log(`  app:      http://localhost:${appPort}`)
 	console.log(`  postgres: localhost:${postgresPort}/${database}`)
 	console.log(`  minio:    http://localhost:${minioPort}`)
-	const proxyHost =
-		worktree === proxySlug
-			? `${proxySlug}.${tld}`
-			: `${worktree}.${proxySlug}.${tld}`
 	console.log(`  proxy:    https://${proxyHost}`)
 }
 

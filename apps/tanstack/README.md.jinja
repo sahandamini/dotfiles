@@ -41,6 +41,16 @@ mise run bootstrap
 vp dev
 ```
 
+## Docker Services
+
+The development stack runs Postgres and MinIO through Docker Compose.
+
+```sh
+vp run compose:up
+vp run compose:down
+vp run compose:reset
+```
+
 ## Environment Variables
 
 Managed by [varlock](https://varlock.dev); `.env.schema` defines what is
@@ -48,6 +58,8 @@ required per environment. All environments resolve secrets from Infisical —
 set `INFISICAL_CLIENT_SECRET` in `.env.local` (gitignored, prompted on first
 bootstrap). Local development points at the docker services via
 `.env.development.local`, regenerated per Git worktree by `mise-tasks/setup`.
+The same file sets `BASE_URL` to the workspace's Pitchfork proxy for local E2E
+tests.
 
 ## Services
 

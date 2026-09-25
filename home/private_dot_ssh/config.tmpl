@@ -1,0 +1,8 @@
+Include ~/.ssh/devboxes.d/*.conf
+Include ~/.lima/*/ssh.config
+
+Host lima
+  HostName host.lima.internal
+  User sahand
+  IdentityFile ~/.ssh/keys/lima.pem
+  IdentitiesOnly yes

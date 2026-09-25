@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+if [ "${1:-}" = "pair" ]; then
+  tailscale=false
+  tailscale_port=false
+  expect_tailscale_port=false
+  for argument in "$@"; do
+    if [ "$expect_tailscale_port" = true ]; then
+      if [ "$argument" != "8443" ]; then
+        printf '%s\n' 't3: Tailscale Serve port is fixed at 8443' >&2
+        exit 2
+      fi
+      expect_tailscale_port=false
+      continue
+    fi
+    [ "$argument" = "--tailscale" ] && tailscale=true
+    case "$argument" in
+      --tailscale-serve-port)
+        tailscale_port=true
+        expect_tailscale_port=true
+        ;;
+      --tailscale-serve-port=8443) tailscale_port=true ;;
+      --tailscale-serve-port=*)
+        printf '%s\n' 't3: Tailscale Serve port is fixed at 8443' >&2
+        exit 2
+        ;;
+    esac
+  done
+  if [ "$tailscale" = true ] && [ "$tailscale_port" = false ]; then
+    set -- "$@" --tailscale-serve-port 8443
+  fi
+fi
+
+set -euo pipefail
+
+state="$HOME/.t3/runtime/service-state.json"
+if [ ! -f "$state" ]; then
+  printf 't3 service not installed; run install.sh first\n' >&2
+  exit 1
+fi
+
+version="$(sed -n 's/.*"activeVersion": *"\([^"]*\)".*/\1/p' "$state")"
+runtime="$HOME/.t3/runtime/versions/$version"
+native_bin="$runtime/t3"
+node_bin="$runtime/node_modules/t3/dist/bin.mjs"
+if [ -x "$native_bin" ]; then
+  exec "$native_bin" "$@"
+fi
+if [ ! -f "$node_bin" ]; then
+  printf 't3 runtime %s missing; reinstall the service\n' "$version" >&2
+  exit 1
+fi
+
+exec env \
+  CC=/usr/bin/gcc \
+  CXX=/usr/bin/g++ \
+  NPM_CONFIG_CACHE="${NPM_CONFIG_CACHE:-$HOME/.cache/npm-t3}" \
+  node "$node_bin" "$@"

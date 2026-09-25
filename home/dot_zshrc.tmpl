@@ -1,0 +1,129 @@
+# ── Environment ───────────────────────────────────────────────
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_HOME="$HOME/.local/share"
+export EDITOR='nvim'
+export VISUAL='nvim'
+if (( ! $+commands[infocmp] )) || [[ -z "$TERM" ]] || ! infocmp "$TERM" >/dev/null 2>&1; then
+  if (( $+commands[infocmp] )) && infocmp xterm-256color >/dev/null 2>&1; then
+    export TERM=xterm-256color
+  else
+    export TERM=dumb
+  fi
+fi
+export OPENCODE_EXPERIMENTAL_OXFMT=1
+export OLLAMA_HOST="http://127.0.0.1:11434"
+export DOTFILES={{ .chezmoi.workingTree | quote }}
+# Global-only mise setting for Herdr workspace copies.
+export MISE_TRUSTED_CONFIG_PATHS="$HOME/.herdr/worktrees/:$HOME/.herdr/workspaces/:$HOME/.t3/worktrees/:$HOME/.t3/workspaces/"
+
+# ── Path ──────────────────────────────────────────────────────
+export PATH="$PATH:/usr/sbin:/sbin"
+export PATH="$PATH:$HOME/.local/bin"
+export PATH="$PATH:$HOME/.nix-profile/bin"
+{{ if eq .chezmoi.os "linux" -}}
+export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
+{{ end -}}
+
+# ── Initialization ────────────────────────────────────────────
+eval "$(mise activate zsh)"
+if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi
+
+# ── Aliases ───────────────────────────────────────────────────
+alias lg='lazygit'
+alias ls='eza -1 --icons --group-directories-first'
+alias k='kubectl'
+alias tree='erd'
+alias pr="gh-dash"
+gr() {
+  local root
+  root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  cd "$root"
+}
+
+nvim()
+{
+    local nvim_new_dir_file="${XDG_CACHE_HOME:-$HOME/.cache}/nvim/newdir"
+    mkdir -p "$(dirname "$nvim_new_dir_file")"
+    rm -f "$nvim_new_dir_file"
+
+    NVIM_NEW_DIR_FILE="$nvim_new_dir_file" command nvim "$@"
+
+    if [ -f "$nvim_new_dir_file" ]; then
+            local nvim_new_dir="$(cat "$nvim_new_dir_file")"
+            rm -f "$nvim_new_dir_file" > /dev/null
+
+            if [ -n "$nvim_new_dir" ] && [ -d "$nvim_new_dir" ]; then
+                    cd "$nvim_new_dir"
+            fi
+    fi
+}
+
+vim()
+{
+    nvim "$@"
+}
+
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	command yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
+}
+
+{{ if eq .chezmoi.os "darwin" -}}
+# ── Platform: macOS ────────────────────────────────────────────
+export PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin/"
+
+lima() {
+  local instance="${LIMA_INSTANCE:-default}"
+  ssh -F "$HOME/.lima/$instance/ssh.config" "lima-$instance" "$@"
+}
+{{ end }}
+{{ if .isLima -}}
+# ── Platform: Lima Guest ───────────────────────────────────────
+export OLLAMA_HOST="http://host.lima.internal:11434"
+{{ end }}
+
+# ── Completion ────────────────────────────────────────────────
+autoload -Uz compinit
+compinit
+
+# ── FZF ───────────────────────────────────────────────────────
+source <(fzf --zsh)
+export FZF_DEFAULT_COMMAND='fd --hidden'
+export FZF_COMPLETION_OPTS="--preview '~/.config/fzf/fzf-preview.sh {}' --border --info=inline"
+
+_fzf_compgen_path() {
+  fd --hidden --follow --color=never . "$1"
+}
+
+_fzf_compgen_dir() {
+  fd --hidden --follow --type directory --color=never . "$1"
+}
+
+if [[ -r "$HOME/.config/fzf/fzf-tab/fzf-tab.plugin.zsh" ]]; then
+  source "$HOME/.config/fzf/fzf-tab/fzf-tab.plugin.zsh"
+fi
+
+# ── Zoxide ────────────────────────────────────────────────────
+eval "$(zoxide init zsh)"
+
+# ── Worktrunk ─────────────────────────────────────────────────
+eval "$(wt config shell init zsh)"
+
+# ── Theme ─────────────────────────────────────────────────────
+eval "$(oh-my-posh init zsh --config ~/.config/oh-my-posh/themes/theme.toml)"
+
+bindkey -e
+KEYTIMEOUT=40
+echo -ne '\e[5 q'
+preexec() { echo -ne '\e[5 q'; }
+
+{{ if .isLima -}}
+# Lima BEGIN
+# Make sure iptables and mount.fuse3 are available
+PATH="$PATH:/usr/sbin:/sbin"
+export PATH
+# Lima END
+{{ end -}}

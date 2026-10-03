@@ -1,3 +1,5 @@
+local theme = require 'theme'
+
 return {
   { 'nvim-tree/nvim-web-devicons' },
   { 'nvim-mini/mini.icons', opts = {} },
@@ -521,17 +523,21 @@ return {
     dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-mini/mini.nvim' },
     opts = {},
   },
-  {
-    'folke/tokyonight.nvim',
+  { -- Colorscheme family comes from theme.lua (see .chezmoidata/themes.toml)
+    theme.plugin,
     priority = 1000,
+    init = function()
+      vim.api.nvim_create_autocmd('ColorScheme', {
+        desc = 'Paint on the terminal background',
+        group = vim.api.nvim_create_augroup('theme-transparent', { clear = true }),
+        callback = function()
+          vim.api.nvim_set_hl(0, 'Normal', { bg = 'NONE' })
+          vim.api.nvim_set_hl(0, 'NormalFloat', { bg = 'NONE' })
+        end,
+      })
+    end,
     config = function()
-      require('tokyonight').setup {
-        styles = {
-          comments = { italic = false },
-        },
-      }
-
-      vim.cmd.colorscheme 'tokyonight-night'
+      vim.cmd.colorscheme(require('theme').colorscheme)
     end,
   },
   {

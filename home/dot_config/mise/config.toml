@@ -34,21 +34,21 @@ bun = "latest"
 # TODO: only needed for `tsgo --lsp` (TS7 language server). Stable typescript@7
 # ships tsc but no LSP binary yet — drop this once TS 7.1 (~Oct 2026) folds the
 # language server into the main `typescript` package. Referenced by opencode.json.
-"npm:@typescript/native-preview" = "7.0.0-dev.20260701.1"
+"npm:@typescript/native-preview" = "7.0.0-dev.20260707.2"
 "npm:@tailwindcss/language-server" = "latest"
 "npm:vscode-langservers-extracted" = "latest"
-"github:LuaLS/lua-language-server" = "3.18.2"
+"github:LuaLS/lua-language-server" = "3.19.1"
 "npm:markdownlint-cli2" = "latest"
 "npm:oxfmt" = "latest"
 "github:JohnnyMorganz/StyLua" = "latest"
 "github:tamasfe/taplo" = "latest"
-tflint = "0.63.1"
-hadolint = "2.14.0"
+tflint = "0.64.0"
+hadolint = "2.15.1"
 "npm:jsonlint" = "1.6.3"
 shellcheck = "latest"
 
 # Shell
-"github:herdrdev/herdr" = "0.8.2"
+"github:herdrdev/herdr" = "0.9.1"
 "oh-my-posh" = "latest"
 
 # AI
@@ -61,13 +61,13 @@ pi = "latest"
 "npm:greptile" = "latest"
 
 # nvim
-"neovim" = "0.12.2"
+"neovim" = "0.12.5"
 "nix:tree-sitter" = "latest"
 "nix:gnumake" = "latest"
 "nix:unzip" = "latest"
 "nix:xclip" = "latest"
 make = "latest"
-"nix:gcc" = "15.2.0"
+"nix:gcc" = "16.2.0"
 
 # database
 "nix:postgresql_18" = "latest"
@@ -88,14 +88,13 @@ imagemagick = "latest"
 "npm:@alibaba-group/open-code-review" = { version = "1.12.5", trust_policy_excludes = ["@alibaba-group/open-code-review@1.12.5"] }
 
 # Devops
-"pipx:azure-cli" = { version = "latest", uvx_args = "--prerelease=allow --overrides {{ env.HOME }}/.config/mise/azure-cli-overrides.txt" }
 kubectl = "latest"
 helm = "latest"
 pulumi = "latest"
-railway = "5.54.1"
-"npm:varlock" = "1.11.0"
+railway = "5.62.1"
+"npm:varlock" = "1.21.0"
 
-# CLIs 
+# CLIs
 "bat" = "latest"
 jq = "latest"
 "fd" = "latest"
@@ -109,7 +108,10 @@ jq = "latest"
 "nix:erdtree" = "latest"
 "lazygit" = "latest"
 "pipx:copier" = "latest"
-pitchfork = "2.21.0"
+pitchfork = "2.28.0"
 
 "npm:chrome-devtools-axi" = "latest"
 "github:alexpasmantier/television" = "latest"
+"gum" = "latest"
+"aqua:openbao/openbao/bao" = "latest"
+chezmoi = "latest"

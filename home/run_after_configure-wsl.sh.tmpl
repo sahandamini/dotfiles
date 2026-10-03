@@ -40,6 +40,15 @@ if ! cmp -s "$temp_dir/wslconfig" "$windows_home/.wslconfig"; then
   install -m 644 "$temp_dir/wslconfig" "$windows_home/.wslconfig"
 fi
 
+# WezTerm runs on Windows and reads %USERPROFILE%\.config\wezterm\wezterm.lua.
+cat > "$temp_dir/wezterm.lua" <<'EOF'
+{{ template "wezterm.lua" . -}}
+EOF
+if ! cmp -s "$temp_dir/wezterm.lua" "$windows_home/.config/wezterm/wezterm.lua"; then
+  install -d "$windows_home/.config/wezterm"
+  install -m 644 "$temp_dir/wezterm.lua" "$windows_home/.config/wezterm/wezterm.lua"
+fi
+
 service_changed=false
 cmp -s "$temp_dir/wsl-loopback-routes" /usr/local/sbin/wsl-loopback-routes || service_changed=true
 cmp -s "$temp_dir/wsl-loopback-routes.service" /etc/systemd/system/wsl-loopback-routes.service || service_changed=true

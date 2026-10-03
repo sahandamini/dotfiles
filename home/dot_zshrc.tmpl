@@ -19,24 +19,44 @@ export MISE_TRUSTED_CONFIG_PATHS="$HOME/.herdr/worktrees/:$HOME/.herdr/workspace
 # ── Path ──────────────────────────────────────────────────────
 export PATH="$PATH:/usr/sbin:/sbin"
 export PATH="$PATH:$HOME/.local/bin"
-export PATH="$PATH:$HOME/.nix-profile/bin"
 {{ if eq .chezmoi.os "linux" -}}
 export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
 {{ end -}}
 
 # ── Initialization ────────────────────────────────────────────
+# Nix is loaded in .zprofile.
 eval "$(mise activate zsh)"
-if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then . $HOME/.nix-profile/etc/profile.d/nix.sh; fi
 
 # ── Aliases ───────────────────────────────────────────────────
 alias lg='lazygit'
-alias ls='eza -1 --icons --group-directories-first'
+# Keep plain ls usable while eza is not installed yet (fresh machines).
+if (( $+commands[eza] )); then
+  alias ls='eza -1 --icons --group-directories-first'
+fi
 alias k='kubectl'
 alias tree='erd'
 alias pr="gh-dash"
 gr() {
   local root
   root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  cd "$root"
+}
+
+gw() {
+  local root
+  if [[ -z "${HERDR_WORKSPACE_ID:-}" ]]; then
+    print 'gw: not inside a herdr pane' >&2
+    return 1
+  fi
+  root=$(herdr workspace list |
+    jq -er --arg id "$HERDR_WORKSPACE_ID" \
+      '.result.workspaces[] | select(.workspace_id == $id) | .worktree.checkout_path? // empty') ||
+    root=$(herdr pane list |
+      jq -er --arg id "$HERDR_WORKSPACE_ID" \
+        '[.result.panes[] | select(.workspace_id == $id)] |
+         sort_by(.pane_id | sub(".*:"; "") | ltrimstr("p") | tonumber) |
+         .[0].cwd // empty')
+  [[ -n "$root" ]] || { print 'gw: workspace checkout not found' >&2; return 1 }
   cd "$root"
 }
 
@@ -74,11 +94,6 @@ function y() {
 {{ if eq .chezmoi.os "darwin" -}}
 # ── Platform: macOS ────────────────────────────────────────────
 export PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin/"
-
-lima() {
-  local instance="${LIMA_INSTANCE:-default}"
-  ssh -F "$HOME/.lima/$instance/ssh.config" "lima-$instance" "$@"
-}
 {{ end }}
 {{ if .isLima -}}
 # ── Platform: Lima Guest ───────────────────────────────────────

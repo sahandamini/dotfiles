@@ -1,8 +1,30 @@
 Include ~/.ssh/devboxes.d/*.conf
+# Forward the real terminal identity so remote apps like herdr can pick the
+# right notification escape; servers opt in with AcceptEnv TERM_PROGRAM.
+SendEnv TERM_PROGRAM
+{{ if eq .chezmoi.os "darwin" -}}
 Include ~/.lima/*/ssh.config
 
+# The default Lima VM, on the fixed port from ~/.config/lima/default.yaml.
 Host lima
+  HostName 127.0.0.1
+  Port 60022
+  User {{ .vm.user }}
+  IdentityFile ~/.lima/_config/user
+  IdentitiesOnly yes
+  HostKeyAlias lima-default
+  StrictHostKeyChecking accept-new
+{{ else if .isLima -}}
+# The macOS host running this VM.
+Host mac
   HostName host.lima.internal
-  User sahand
+  User {{ .chezmoi.username }}
   IdentityFile ~/.ssh/keys/lima.pem
   IdentitiesOnly yes
+{{ else -}}
+# The Lima VM over Tailscale.
+Host lima {{ .vm.hostname }} {{ .vm.ip }}
+  HostName {{ .vm.ip }}
+  User {{ .vm.user }}
+  StrictHostKeyChecking accept-new
+{{ end -}}

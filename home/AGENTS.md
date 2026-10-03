@@ -1,6 +1,6 @@
 # aamini coding
 
-This document outlines global rules for Aria's agents to follow.
+This document outlines global rules for Sahand's agents to follow.
 
 ## Remote Development
 

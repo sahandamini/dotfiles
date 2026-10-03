@@ -1,0 +1,34 @@
+# Source Nix profile first so nix-installed tools are available. Linux uses a
+# single-user install; macOS only supports the multi-user daemon install.
+if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then
+  . $HOME/.nix-profile/etc/profile.d/nix.sh
+elif [ -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
+  . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+fi
+
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
+export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME/bin:"*) ;;
+  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
+esac
+
+{{ if .isLima -}}
+# SSOT for this VM's tailnet address; dev servers bind it so host-side
+# devices can reach them. Projects fall back to `tailscale ip -4`.
+export TAILSCALE_IP="{{ .vm.ip }}"
+{{ end }}
+
+# Personal secret vault (OpenBao via varlock; schema in ~/.env.schema). Keys
+# resolve into login-shell env so every project and tool sees process env;
+# BAO_* plumbing stays internal. Without a schema this is a no-op, and
+# failures stay silent so a broken vault never blocks a shell.
+_varlock="$HOME/.local/share/mise/shims/varlock"
+if [ -f "$HOME/.env.schema" ] && [ -x "$_varlock" ]; then
+  eval "$("$_varlock" load -p "$HOME" --format shell --compact --filter '!BAO_*' 2>/dev/null)"
+fi
+unset _varlock

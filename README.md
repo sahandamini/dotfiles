@@ -31,7 +31,6 @@ creates an empty source directory instead of using this repo.
 | ---------------------------------- | ------------------------------------------------ |
 | `home/`                            | chezmoi source state for `$HOME`                 |
 | `home/.chezmoidata/`               | shared data: Lima VM identity, terminal themes   |
-| `apps/tanstack`                    | copier template scaffolded by `new-tanstack-app` |
 | `home/dot_config/mise/config.toml` | machine-wide toolchains and global tasks         |
 | `home/dot_config/mise/mise.lock`   | pinned versions for macOS and Linux              |
 
@@ -54,6 +53,10 @@ Global (works from any directory):
 ```bash
 mise run new-tanstack-app <dir>   # scaffold a new TanStack Start app
 ```
+
+The app template lives in its own fork:
+[sahandamini/tanstack-template](https://github.com/sahandamini/tanstack-template).
+Its README describes the upstream sync.
 
 List everything with `mise tasks --all`.
 

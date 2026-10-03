@@ -83,6 +83,14 @@ key = "prefix+alt+g"
 type = "pane"
 command = "lazygit"
 description = "Open Lazygit"
+
+[[keys.command]]
+key = "prefix+alt+d"
+type = "popup"
+command = "hunk diff"
+description = "hunk: working copy diff"
+width = "90%"
+height = "90%"
 # previous_workspace = "" # optional, unset by default
 # next_workspace = ""     # optional, unset by default
 # previous_agent = ""     # optional, unset by default

@@ -36,6 +36,7 @@ fi
 alias k='kubectl'
 alias tree='erd'
 alias pr="gh-dash"
+alias gd='hunk diff --watch'
 gr() {
   local root
   root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1

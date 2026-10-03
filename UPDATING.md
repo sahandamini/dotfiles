@@ -9,7 +9,7 @@ Use this guide when the user asks to update this fork from its source repository
    `git remote add upstream https://github.com/aria-amini/dotfiles.git`.
 2. Fetch both remotes. Compare the fork with the latest `upstream/main`.
 3. Inspect upstream commits and changed files. Group changes by tool and purpose.
-4. Check current tools and settings in `home/`, `mise.toml`, `apps/`, and `tools/`.
+4. Check current tools and settings in `home/`, `mise.toml`, and `tools/`.
 5. Summarize important additions, removals, migrations, and conflicts.
 6. Ask which unclear tools or workflows the user wants. Give a short explanation and recommendation.
 7. Wait for answers before adding unclear tools or replacing current workflows.
@@ -21,7 +21,10 @@ Use these as a starting point. Ask again when upstream changes the tools or thei
 - Keep Chezmoi, Git, Herdr, Worktrunk, lazygit, Television, and the existing `pix` tool.
 - Television uses its built-in channels plus a `git-log` graph override. Do not re-add the community channel set.
 - Exclude Jujutsu and Jujutsu-specific configs, channels, plugins, and workflows (jj-waltz, jjui, jj-ryu).
-- Exclude tmux, sesh, Workmux, and hunk unless the user asks to add them.
+- Exclude tmux, sesh, and Workmux unless the user asks to add them.
+- Keep hunk with `vcs = "git"` in its config.
+- Use `chrome-devtools-axi` for browser automation. Do not add playwriter.
+- Keep the TanStack app template in the `sahandamini/tanstack-template` fork, not in this repo. Its README has the sync steps.
 - Exclude Microsoft work setup and Azure tools (work registries, Azure DevOps credentials, azure-cli).
 - Keep WSL support and the WezTerm config. The user has a Windows desktop with WSL and WezTerm. The MacBook runs Ghostty and the Lima VM.
 - Keep the theme stack in `home/.chezmoidata/themes.toml`.

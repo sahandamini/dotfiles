@@ -71,7 +71,7 @@ limactl start default
 ssh lima
 ```
 
-From inside the VM, `ssh mac` reaches the Mac. Update the VM's Tailscale
+Copy files between the Mac and the VM with `limactl copy`. Update the VM's Tailscale
 address in `home/.chezmoidata/vm.toml` if it changes.
 
 ## Updating from upstream

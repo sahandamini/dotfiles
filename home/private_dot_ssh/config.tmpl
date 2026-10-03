@@ -14,14 +14,7 @@ Host lima
   IdentitiesOnly yes
   HostKeyAlias lima-default
   StrictHostKeyChecking accept-new
-{{ else if .isLima -}}
-# The macOS host running this VM.
-Host mac
-  HostName host.lima.internal
-  User {{ .chezmoi.username }}
-  IdentityFile ~/.ssh/keys/lima.pem
-  IdentitiesOnly yes
-{{ else -}}
+{{ else if not .isLima -}}
 # The Lima VM over Tailscale.
 Host lima {{ .vm.hostname }} {{ .vm.ip }}
   HostName {{ .vm.ip }}

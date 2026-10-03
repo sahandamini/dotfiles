@@ -7,6 +7,8 @@ Use this guide when the user asks to update this fork from its source repository
 1. Read this guide and inspect `origin`, `upstream`, Git status, and recent history.
    Add the upstream remote if it is missing:
    `git remote add upstream https://github.com/aria-amini/dotfiles.git`.
+   Then run `git config remote.upstream.tagOpt --no-tags`. Upstream tags are
+   old template releases and do not apply to this repo.
 2. Fetch both remotes. Compare the fork with the latest `upstream/main`.
 3. Inspect upstream commits and changed files. Group changes by tool and purpose.
 4. Check current tools and settings in `home/`, `mise.toml`, and `tools/`.

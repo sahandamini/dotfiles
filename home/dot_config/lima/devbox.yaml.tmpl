@@ -1,4 +1,4 @@
-minimumLimaVersion: 2.0.0
+minimumLimaVersion: 2.2.0
 
 images:
 - location: https://cloud-images.ubuntu.com/releases/resolute/release/ubuntu-26.04-server-cloudimg-amd64.img
@@ -6,6 +6,7 @@ images:
 - location: https://cloud-images.ubuntu.com/releases/resolute/release/ubuntu-26.04-server-cloudimg-arm64.img
   arch: aarch64
 
+# Ubuntu 26.04 NIC rename bug (LP: #2136392) blocks boot for 120s.
 param:
   internal_netplanOptional: "true"
 cpus: 4

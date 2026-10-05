@@ -56,8 +56,8 @@ List everything with `mise tasks --all`.
 
 ## Lima VM
 
-Create the `devbox` instance from the managed template (no host mounts, SSH on
-port 60022):
+Create the `devbox` instance from the managed template (Lima 2.2.0 or newer,
+no host mounts, SSH on port 60022):
 
 ```bash
 limactl create --name devbox ~/.config/lima/devbox.yaml -y

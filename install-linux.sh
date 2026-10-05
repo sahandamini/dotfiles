@@ -497,7 +497,7 @@ phase_docker() {
 phase_tailscale() {
   phase_begin tailscale
   if [[ $HAS_SYSTEMD == false ]]; then
-    detail "no systemd; skipping (manual daemon: mise -C \"$DOTFILES_DIR\" run tailscaled)"
+    detail "no systemd; skipping"
     return
   fi
   need_sudo

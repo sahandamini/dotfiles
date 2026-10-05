@@ -30,6 +30,8 @@ Use these as a starting point. Ask again when upstream changes the tools or thei
 - Exclude Microsoft work setup and Azure tools (work registries, Azure DevOps credentials, azure-cli).
 - Keep WSL support and the WezTerm config. The user has a Windows desktop with WSL and WezTerm. The MacBook runs Ghostty and the Lima VM.
 - Keep the theme stack and machine data in `home/.chezmoidata.toml`.
+- Use Catppuccin Frappe with no light/dark pair. Herdr uses the `terminal` theme with `auto_switch = false`.
+- Exclude the upstream T3 Code fork (`t3-fork-update`, fork runtime releases). Use the official `t3` npm package.
 - Keep the Lima VM without host mounts.
 - Skip upstream's personal infrastructure: the OpenBao vault schema, pi provider settings, model choices, and identity. Keep the fork's `[proxy]` and `[vm]` values in `home/.chezmoidata.toml`.
 - Keep Caddy for `*.lab.sahandamini.dev` with the Porkbun DNS plugin (`setup-caddy` task, `~/.config/caddy-lab/env`). Upstream uses Cloudflare and OpenBao; do not adopt those.

@@ -40,9 +40,9 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable caddy-lab.service
 
-if [ ! -f "$env_file" ]; then
+if ! grep -qs '^PORKBUN_API_KEY=.' "$env_file" || ! grep -qs '^PORKBUN_API_SECRET_KEY=.' "$env_file"; then
   cat >&2 <<EOF
-$env_file is missing. Create a Porkbun API key, then run:
+$env_file is missing a Porkbun key. Create a Porkbun API key, then run:
   umask 077; read -rs 'k?API key: '; echo; read -rs 's?Secret key: '; echo
   printf 'PORKBUN_API_KEY=%s\nPORKBUN_API_SECRET_KEY=%s\n' "\$k" "\$s" > $env_file; unset k s
   mise run setup-caddy

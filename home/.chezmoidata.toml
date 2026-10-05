@@ -1,5 +1,4 @@
-# Single source of truth for the terminal theme stack.
-# Swap by editing 'theme' and running 'chezmoi apply'.
+# Terminal theme stack. Swap it by editing 'theme' and running 'chezmoi apply'.
 # ghostty: exact built-in theme name (check with 'ghostty +list-themes').
 # ghostty_light/ghostty_dark: optional, makes Ghostty follow OS appearance.
 theme = "catppuccin"

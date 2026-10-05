@@ -22,12 +22,12 @@ itself.
 
 ## Layout
 
-| Path                               | What it is                                       |
-| ---------------------------------- | ------------------------------------------------ |
-| `home/`                            | chezmoi source state for `$HOME`                 |
-| `home/.chezmoidata.toml`           | shared data: app domain, Lima VM, themes         |
-| `home/dot_config/mise/config.toml` | machine-wide toolchains and global tasks         |
-| `home/dot_config/mise/mise.lock`   | pinned versions for macOS and Linux              |
+| Path                               | What it is                               |
+| ---------------------------------- | ---------------------------------------- |
+| `home/`                            | chezmoi source state for `$HOME`         |
+| `home/.chezmoidata.toml`           | shared data: app domain, Lima VM, themes |
+| `home/dot_config/mise/config.toml` | machine-wide toolchains and global tasks |
+| `home/dot_config/mise/mise.lock`   | pinned versions for macOS and Linux      |
 
 Tools reach PATH through mise and repository-local tool packages. Change the
 terminal theme (Ghostty, WezTerm, Herdr, nvim) in `home/.chezmoidata.toml`.
@@ -54,6 +54,20 @@ Its README describes the upstream sync.
 
 List everything with `mise tasks --all`.
 
+## Updating tools
+
+`mise up` upgrades tools on one machine and rewrites its
+`~/.config/mise/mise.lock`. Copy the result into the repo with entries for all
+four platforms, then commit it:
+
+```bash
+GITHUB_TOKEN=$(gh auth token) mise lock --global --platform linux-arm64,linux-x64,macos-arm64,macos-x64
+chezmoi re-add ~/.config/mise/mise.lock
+```
+
+Bump pinned versions (`mise outdated --bump` lists them) in
+`home/dot_config/mise/config.toml`, not with `mise use -g` on a machine.
+
 ## Lima VM
 
 Create the `devbox` instance from the managed template (Lima 2.2.0 or newer,
@@ -76,9 +90,10 @@ domain control with a Porkbun DNS record, so it needs a Porkbun API key.
 
 1. In Porkbun, add an A record `*.lab` that points to the VM's Tailscale IP.
 2. In Porkbun, create an API key. Turn on API access for `sahandamini.dev` only.
-3. On the VM, write the key to `~/.config/caddy-lab/env` (mode 600). The command uses zsh syntax:
+3. On the VM, write the key to `~/.config/caddy-lab/env` (mode 600). The
+   command uses zsh syntax:
 
-   ```bash
+   ```zsh
    umask 077; read -rs 'k?API key: '; echo; read -rs 's?Secret key: '; echo
    printf 'PORKBUN_API_KEY=%s\nPORKBUN_API_SECRET_KEY=%s\n' "$k" "$s" > ~/.config/caddy-lab/env; unset k s
    ```

@@ -228,7 +228,7 @@ run() {
   fi
   # gum spin does not capture child output; keep it out of the terminal
   # and print it only when the command fails. stdin is /dev/null, so a
-  # prompt fails at once instead of waiting where nobody can see it.
+  # prompt that reads stdin fails at once instead of waiting unseen.
   local log rc
   log="$(mktemp "${TMPDIR:-/tmp}/dotfiles-run-XXXXXX")"
   if gum spin --show-error --title "  $label..." -- \

@@ -602,12 +602,13 @@ phase_t3() {
     need_sudo
     run_task "Installing build tools" sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential
   fi
-  if [[ -f "$HOME/.config/systemd/user/t3code.service" ]]; then
-    run_task "Updating T3 Code" env PATH="$node_bin_dir:/usr/bin:/bin" CC=/usr/bin/gcc CXX=/usr/bin/g++ \
-      NPM_CONFIG_CACHE="$HOME/.cache/npm-t3" "$node_bin_dir/npx" --yes t3@0.0.40 service update
-  else
-    run_task "Installing T3 Code" env PATH="$node_bin_dir:/usr/bin:/bin" CC=/usr/bin/gcc CXX=/usr/bin/g++ \
-      NPM_CONFIG_CACHE="$HOME/.cache/npm-t3" "$node_bin_dir/npx" --yes t3@0.0.40 service install
+  local installed=false
+  [[ -f "$HOME/.config/systemd/user/t3code.service" ]] && installed=true
+  # service install also repairs an existing service. A release can need a
+  # newer launcher than an old pin provides, so install the latest release.
+  run_task "Installing T3 Code" env PATH="$node_bin_dir:/usr/bin:/bin" CC=/usr/bin/gcc CXX=/usr/bin/g++ \
+    NPM_CONFIG_CACHE="$HOME/.cache/npm-t3" "$node_bin_dir/npx" --yes t3@latest service install
+  if [[ $installed == false ]]; then
     NOTES+=($'Pair a device:\n  t3 pair --tailscale --tailscale-serve-port 8443\n  then scan the QR code')
   fi
 }

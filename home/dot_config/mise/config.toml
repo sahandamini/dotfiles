@@ -9,6 +9,11 @@ experimental = true
 minimum_release_age = "1d"
 idiomatic_version_file_enable_tools = ["node"]
 
+[settings.github]
+# gh keeps its token in the OS keyring, which gh_cli_tokens (hosts.yml) cannot
+# read. Without a token, github: and aqua: installs hit the API rate limit.
+credential_command = "gh auth token"
+
 [plugins]
 nix = "https://github.com/jbadeau/mise-nix.git"
 vite-plus = "https://github.com/markmals/mise-vite-plus"

@@ -1,3 +1,14 @@
+{{/* ~/dotfiles links to the repo; a real directory there is a checkout from
+     before the move to ~/.local/share/chezmoi, so leave it alone. */ -}}
+{{ $dotfiles := joinPath .chezmoi.homeDir "dotfiles" -}}
+{{ $existing := lstat $dotfiles -}}
+{{ if or (eq .chezmoi.workingTree $dotfiles) (and $existing (ne $existing.type "symlink")) }}
+dotfiles
+{{ end }}
+{{ if not .isLima }}
+.config/caddy-lab
+.config/mise/tasks/setup-caddy
+{{ end }}
 {{ if ne .chezmoi.os "darwin" }}
 .config/lima
 .lima

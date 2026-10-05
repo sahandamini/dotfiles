@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#MISE description="Caddy TLS edge for *.{{ .proxy.tld }}: Porkbun DNS build and a system service"
+set -euo pipefail
+caddy_bin="$HOME/.local/bin/caddy"
+config_dir="$HOME/.config/caddy-lab"
+env_file="$config_dir/env"
+
+# The caddyserver.com build service adds the DNS plugin; 'caddy upgrade'
+# keeps it. The system service grants the port 443 capability, so binary
+# upgrades need no setcap.
+if ! "$caddy_bin" list-modules 2>/dev/null | grep -qx dns.providers.porkbun; then
+  download="$(mktemp)"
+  trap 'rm -f "$download"' EXIT
+  curl -fsSL --retry 3 -o "$download" \
+    "https://caddyserver.com/api/download?os=linux&arch=$(dpkg --print-architecture)&p=github.com/caddy-dns/porkbun"
+  install -D -m 755 "$download" "$caddy_bin"
+fi
+
+sudo tee /etc/systemd/system/caddy-lab.service >/dev/null <<EOF
+[Unit]
+Description=Caddy TLS edge for *.{{ .proxy.tld }}
+After=network-online.target tailscaled.service
+Wants=network-online.target
+ConditionPathExists=$env_file
+
+[Service]
+User=$(id -un)
+EnvironmentFile=$env_file
+ExecStart=$caddy_bin run --watch --adapter caddyfile --config $config_dir/Caddyfile
+# Caddy binds the Tailscale IP, which appears after tailscaled connects.
+Restart=always
+RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable caddy-lab.service
+
+if [ ! -f "$env_file" ]; then
+  cat >&2 <<EOF
+$env_file is missing. Create a Porkbun API key, then run:
+  umask 077; read -rsp 'API key: ' k; echo; read -rsp 'Secret key: ' s; echo
+  printf 'PORKBUN_API_KEY=%s\nPORKBUN_API_SECRET_KEY=%s\n' "\$k" "\$s" > $env_file; unset k s
+  mise run setup-caddy
+EOF
+  exit 0
+fi
+sudo systemctl restart caddy-lab.service
+echo "Caddy serves https://*.{{ .proxy.tld }}. Logs: journalctl -u caddy-lab -f"

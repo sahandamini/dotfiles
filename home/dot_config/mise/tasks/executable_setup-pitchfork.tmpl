@@ -1,19 +1,18 @@
 #!/usr/bin/env bash
 #MISE description="One-time Pitchfork proxy setup: TLD, bind host, boot service, CA trust"
-#MISE dir="{{cwd}}"
+#MISE dir="{{ "{{cwd}}" }}"
 #USAGE arg "[host]" help="Proxy bind address: 127.0.0.1 (laptop) or 0.0.0.0 (remote devbox)" default="127.0.0.1"
 set -euo pipefail
 pitchfork_bin="$(mise which pitchfork)"
-pitchfork settings set proxy.tld lvh.ariaamini.com --global
+pitchfork settings set proxy.tld {{ .proxy.tld }} --global
 pitchfork settings set proxy.host "$usage_host" --global
+# Caddy owns port 443 on the Tailscale IP and proxies to this port.
+pitchfork settings set proxy.port 9443 --global
 pitchfork settings set proxy.sync_hosts false --global
 pitchfork settings set proxy.enable true --global
 pitchfork settings set supervisor.user "$(id -un)" --global
 if systemctl is-enabled pitchfork.service &>/dev/null; then
   sudo "$pitchfork_bin" boot disable
-fi
-if [ "$(sysctl -n net.ipv4.ip_unprivileged_port_start)" -gt 443 ]; then
-  sudo setcap cap_net_bind_service=+ep "$pitchfork_bin"
 fi
 sudo loginctl enable-linger "$(id -un)"
 pitchfork boot enable

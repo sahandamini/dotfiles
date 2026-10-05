@@ -1,4 +1,6 @@
-sourceDir = {{ printf "%s/dotfiles" .chezmoi.homeDir | quote }}
+# The repo lives at ~/.local/share/chezmoi by default; init --source records
+# another checkout.
+sourceDir = {{ .chezmoi.workingTree | quote }}
 
 [data]
 isWSL = {{ if and (eq .chezmoi.os "linux") (output "uname" "-r" | lower | contains "microsoft") }}true{{ else }}false{{ end }}

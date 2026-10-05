@@ -1,0 +1,21 @@
+{
+	auto_https disable_redirects
+	skip_install_trust
+}
+
+https://*.{{ .proxy.tld }} {
+	bind {{ .vm.ip }}
+	tls {
+		dns porkbun {
+			api_key {env.PORKBUN_API_KEY}
+			api_secret_key {env.PORKBUN_API_SECRET_KEY}
+		}
+	}
+	reverse_proxy https://127.0.0.1:9443 {
+		header_up Host {host}
+		transport http {
+			tls_trust_pool file {{ .chezmoi.homeDir }}/.local/state/pitchfork/proxy/ca.pem
+			tls_server_name {host}
+		}
+	}
+}

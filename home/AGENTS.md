@@ -10,7 +10,8 @@ using the amphetamine app.
 
 ### Dotfiles
 
-Manage home-directory dotfiles with Chezmoi. Edit their source files in
+Manage home-directory dotfiles with Chezmoi. The source repo lives at
+`~/.local/share/chezmoi`, and `~/dotfiles` links to it. Edit source files under
 `~/dotfiles/home`, then apply only the changed targets with `chezmoi apply`.
 
 ### Notes
@@ -21,10 +22,20 @@ Manage home-directory dotfiles with Chezmoi. Edit their source files in
   or published DNS), never server-side localhost. No shared filesystem exists
   between server and clients. When the user must view a file, start a loopback
   server and publish it with
-  `tailscale serve --bg --set-path=/<unique-path> <port>`. Read the node DNS
-  name with `tailscale status --json`, then hand over the full HTTPS URL.
-  Inspect existing Serve mappings first.
+  `tailscale serve --bg --https=8443 --set-path=/<unique-path> <port>`. Read the
+  node DNS name with `tailscale status --json`, then hand over the full HTTPS
+  URL. Inspect existing Serve mappings first.
 - Do not replace or reset mappings you did not start.
+- Caddy terminates TLS on the Tailscale IP at port 443 and proxies to the
+  Pitchfork proxy on loopback port 9443. App URLs are
+  `https://<name>.lab.sahandamini.dev`, with a public Let's Encrypt certificate.
+  Hostnames are single-level: slugs flatten directory dots to hyphens
+  (`app.worktree` serves as `app-worktree`). The wildcard certificate covers one
+  level only. Register a worktree with
+  `pitchfork proxy add <slug> --daemon dev --dir <worktree-root>`.
+- Port ownership on the Tailscale IP: Caddy owns port 443. Ad-hoc Tailscale
+  Serve publishes set an explicit `--https` port in the 8443–8499 range, never
+  the default 443.
 - For T3 Code dev servers, use `vp run dev --share`; do not configure Tailscale
   Serve by hand.
 

@@ -4,6 +4,14 @@
 # ghostty_light/ghostty_dark: optional, makes Ghostty follow OS appearance.
 theme = "catppuccin"
 
+[proxy]
+tld = "lab.sahandamini.dev"
+
+[vm]
+user = "sahand"
+ip = "100.108.203.6"
+hostname = "lima-default.tailc9c063.ts.net"
+
 [themes.catppuccin]
 ghostty = "Catppuccin Mocha"
 ghostty_light = "Catppuccin Latte"

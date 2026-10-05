@@ -523,7 +523,7 @@ return {
     dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-mini/mini.nvim' },
     opts = {},
   },
-  { -- Colorscheme family comes from theme.lua (see .chezmoidata/themes.toml)
+  { -- Colorscheme family comes from theme.lua (see .chezmoidata.toml)
     theme.plugin,
     priority = 1000,
     init = function()

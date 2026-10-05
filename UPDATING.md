@@ -29,9 +29,13 @@ Use these as a starting point. Ask again when upstream changes the tools or thei
 - Keep the TanStack app template in the `sahandamini/tanstack-template` fork, not in this repo. Its README has the sync steps.
 - Exclude Microsoft work setup and Azure tools (work registries, Azure DevOps credentials, azure-cli).
 - Keep WSL support and the WezTerm config. The user has a Windows desktop with WSL and WezTerm. The MacBook runs Ghostty and the Lima VM.
-- Keep the theme stack in `home/.chezmoidata/themes.toml`.
+- Keep the theme stack and machine data in `home/.chezmoidata.toml`.
 - Keep the Lima VM without host mounts.
-- Skip upstream's personal infrastructure: Caddy lab domains, the OpenBao vault schema, pi provider settings, model choices, and identity. Keep `home/.chezmoidata/vm.toml` on the fork's VM values.
+- Skip upstream's personal infrastructure: the OpenBao vault schema, pi provider settings, model choices, and identity. Keep the fork's `[proxy]` and `[vm]` values in `home/.chezmoidata.toml`.
+- Keep Caddy for `*.lab.sahandamini.dev` with the Porkbun DNS plugin (`setup-caddy` task, `~/.config/caddy-lab/env`). Upstream uses Cloudflare and OpenBao; do not adopt those.
+- Keep the repo at `~/.local/share/chezmoi` with the managed `~/dotfiles` link.
+- Keep `.bash_profile` write-once (`modify_dot_bash_profile`), like upstream.
+- Skip upstream's Windows installer (`install-windows.ps1`) and its Windows-only ignore rules. Windows uses WSL.
 - Keep `.zshrc` fully managed (`dot_zshrc.tmpl`). Do not adopt upstream's write-once `modify_dot_zshrc`.
 - Do not assume that a tool is unused because its binary is absent. Inspect its config and use first.
 
@@ -54,5 +58,6 @@ Use these as a starting point. Ask again when upstream changes the tools or thei
 9. Run `mise run check`, shell syntax checks, and `git diff --check`.
 10. Show a concise change summary and test results.
 11. Commit and push to `origin` only when the user asks.
+12. After the port, record the sync point with `git merge -s ours upstream/main`, so the next sync lists only newer upstream commits.
 
 Never push to `upstream`. Do not replace the Chezmoi migration with a blind merge or tree copy.

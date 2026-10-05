@@ -10,7 +10,7 @@ if [ -z "$asset" ]; then
 fi
 tgz="https://github.com/aria-amini/t3code/releases/download/fork-runtime/$asset"
 echo "Updating T3 Code with $asset"
-node_bin_dir="$(dirname "$(mise -C "$HOME/dotfiles" which node)")"
+node_bin_dir="$(dirname "$(mise -C "${DOTFILES:-$HOME/.local/share/chezmoi}" which node)")"
 export T3_RUNTIME_PACKAGE="$tgz"
 env PATH="$node_bin_dir:/usr/bin:/bin" CC=/usr/bin/gcc CXX=/usr/bin/g++ NPM_CONFIG_CACHE="$HOME/.cache/npm-t3" \
   "$node_bin_dir/npx" --yes "$tgz" service update

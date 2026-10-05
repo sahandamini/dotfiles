@@ -58,12 +58,13 @@ client network independently.
 
 ### Certificates
 
-The private CA (Pitchfork Local CA for `*.lvh.ariaamini.com`) lives on the
-server. Fresh client profiles reject it. In order:
+App URLs (`https://<name>.lab.sahandamini.dev`) use a public Let's Encrypt
+certificate from Caddy. Clients need no CA setup.
 
-1. Durable: trust `ca.pem` on the client. Server-side `pitchfork proxy trust`
-   covers the server store only.
-2. One-off debug: relaunch the client Chrome with `--ignore-certificate-errors`.
+The Pitchfork Local CA signs only the loopback proxy on port 9443. Only the
+server can reach that port. Server-side `pitchfork proxy trust` adds the CA to
+the server store. For a one-off debug, relaunch Chrome with
+`--ignore-certificate-errors`.
 
 ### Platform notes
 
@@ -149,9 +150,9 @@ const { chromium, firefox } = require('@playwright/test')
 
 Rules from live captures:
 
-- Pass `ignoreHTTPSErrors: true` on `newContext` for `*.lvh.ariaamini.com`.
-  Firefox keeps certificates in its own NSS store. Without the flag, it
-  renders the Pitchfork CA error page.
+- Pass `ignoreHTTPSErrors: true` on `newContext` for direct Pitchfork URLs on
+  port 9443. Firefox keeps certificates in its own NSS store. Without the
+  flag, it renders the Pitchfork CA error page.
 - Validate captures with `md5sum`. Identical hashes across pages mean every
   file shows the same error page, not the app.
 - Force a theme with `ctx.addCookies` before `goto`. Pass

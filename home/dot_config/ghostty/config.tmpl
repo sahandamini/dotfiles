@@ -1,5 +1,5 @@
 {{- $t := index .themes .theme -}}
-{{ if $t.ghostty_light -}}
+{{ if hasKey $t "ghostty_light" -}}
 theme = light:{{ $t.ghostty_light }},dark:{{ $t.ghostty_dark }}
 {{ else -}}
 theme = {{ $t.ghostty | quote }}

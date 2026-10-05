@@ -13,11 +13,9 @@ ip = "100.108.203.6"
 hostname = "lima-default.tailc9c063.ts.net"
 
 [themes.catppuccin]
-ghostty = "Catppuccin Mocha"
-ghostty_light = "Catppuccin Latte"
-ghostty_dark = "Catppuccin Mocha"
+ghostty = "Catppuccin Frappe"
 nvim = "catppuccin/nvim"
-colorscheme = "catppuccin"
+colorscheme = "catppuccin-frappe"
 
 [themes.jellybeans]
 ghostty = "Jellybeans"

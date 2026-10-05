@@ -1,7 +1,8 @@
 local wezterm = require 'wezterm'
 
-local scheme_light = {{ (index .themes .theme).ghostty_light | default (index .themes .theme).ghostty | quote }}
-local scheme_dark = {{ (index .themes .theme).ghostty_dark | default (index .themes .theme).ghostty | quote }}
+{{- $t := index .themes .theme }}
+local scheme_light = {{ get $t "ghostty_light" | default $t.ghostty | quote }}
+local scheme_dark = {{ get $t "ghostty_dark" | default $t.ghostty | quote }}
 
 local appearance = wezterm.gui and wezterm.gui.get_appearance() or 'Dark'
 

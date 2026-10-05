@@ -56,13 +56,13 @@ List everything with `mise tasks --all`.
 
 ## Lima VM
 
-Create the default instance from the managed template (no host mounts, SSH on
+Create the `devbox` instance from the managed template (no host mounts, SSH on
 port 60022):
 
 ```bash
-limactl create --name default ~/.config/lima/default.yaml -y
-limactl start default
-ssh lima
+limactl create --name devbox ~/.config/lima/devbox.yaml -y
+limactl start devbox
+ssh devbox
 ```
 
 Copy files between the Mac and the VM with `limactl copy`. Update the VM's

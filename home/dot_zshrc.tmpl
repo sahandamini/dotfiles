@@ -95,6 +95,8 @@ function y() {
 {{ if eq .chezmoi.os "darwin" -}}
 # ── Platform: macOS ────────────────────────────────────────────
 export PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin/"
+# lima and limactl commands without an instance name use this VM.
+export LIMA_INSTANCE={{ .vm.name | quote }}
 {{ end }}
 {{ if .isLima -}}
 # ── Platform: Lima Guest ───────────────────────────────────────

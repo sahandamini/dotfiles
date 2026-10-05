@@ -5,18 +5,18 @@ SendEnv TERM_PROGRAM
 {{ if eq .chezmoi.os "darwin" -}}
 Include ~/.lima/*/ssh.config
 
-# The default Lima VM, on the fixed port from ~/.config/lima/default.yaml.
-Host lima
+# The Lima VM, on the fixed port from ~/.config/lima/devbox.yaml.
+Host {{ .vm.name }} lima
   HostName 127.0.0.1
   Port 60022
   User {{ .vm.user }}
   IdentityFile ~/.lima/_config/user
   IdentitiesOnly yes
-  HostKeyAlias lima-default
+  HostKeyAlias lima-{{ .vm.name }}
   StrictHostKeyChecking accept-new
 {{ else if not .isLima -}}
 # The Lima VM over Tailscale.
-Host lima {{ .vm.hostname }} {{ .vm.ip }}
+Host {{ .vm.name }} lima {{ .vm.hostname }} {{ .vm.ip }}
   HostName {{ .vm.ip }}
   User {{ .vm.user }}
   StrictHostKeyChecking accept-new

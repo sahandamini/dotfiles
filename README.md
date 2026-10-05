@@ -76,10 +76,10 @@ domain control with a Porkbun DNS record, so it needs a Porkbun API key.
 
 1. In Porkbun, add an A record `*.lab` that points to the VM's Tailscale IP.
 2. In Porkbun, create an API key. Turn on API access for `sahandamini.dev` only.
-3. On the VM, write the key to `~/.config/caddy-lab/env` (mode 600):
+3. On the VM, write the key to `~/.config/caddy-lab/env` (mode 600). The command uses zsh syntax:
 
    ```bash
-   umask 077; read -rsp 'API key: ' k; echo; read -rsp 'Secret key: ' s; echo
+   umask 077; read -rs 'k?API key: '; echo; read -rs 's?Secret key: '; echo
    printf 'PORKBUN_API_KEY=%s\nPORKBUN_API_SECRET_KEY=%s\n' "$k" "$s" > ~/.config/caddy-lab/env; unset k s
    ```
 

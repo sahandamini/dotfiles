@@ -10,7 +10,7 @@ tld = "lab.sahandamini.dev"
 [vm]
 name = "devbox"
 user = "sahand"
-ip = "100.108.203.6"
+ip = "100.108.188.119"
 hostname = "lima-devbox.tailc9c063.ts.net"
 
 [themes.catppuccin]

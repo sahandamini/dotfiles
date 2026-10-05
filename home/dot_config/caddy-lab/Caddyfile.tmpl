@@ -10,6 +10,9 @@ https://*.{{ .proxy.tld }} {
 			api_key {env.PORKBUN_API_KEY}
 			api_secret_key {env.PORKBUN_API_SECRET_KEY}
 		}
+		# Lima's host resolver and MagicDNS return no SOA records, which the
+		# DNS challenge needs to find the zone.
+		resolvers 1.1.1.1 8.8.8.8
 	}
 	reverse_proxy https://127.0.0.1:9443 {
 		header_up Host {host}

@@ -227,11 +227,12 @@ run() {
     return
   fi
   # gum spin does not capture child output; keep it out of the terminal
-  # and print it only when the command fails.
+  # and print it only when the command fails. stdin is /dev/null, so a
+  # prompt fails at once instead of waiting where nobody can see it.
   local log rc
   log="$(mktemp "${TMPDIR:-/tmp}/dotfiles-run-XXXXXX")"
   if gum spin --show-error --title "  $label..." -- \
-    bash -c 'exec "$2" "${@:3}" >"$1" 2>&1' _ "$log" "$@"; then
+    bash -c 'exec "$2" "${@:3}" </dev/null >"$1" 2>&1' _ "$log" "$@"; then
     rm -f "$log"
   else
     rc=$?
@@ -346,10 +347,15 @@ phase_mise() {
   fi
   export PATH="$HOME/.local/share/mise/shims:$PATH"
   # Bootstrap gh for auth. The full toolset converges in the mise_tools
-  # phase after apply writes the mise config. mise use -g sets a default
-  # version; bare mise install leaves shims broken with "No version is set
-  # for shim".
-  run_task "Installing bootstrap tools (gh)" mise use -g --quiet github-cli
+  # phase after apply writes the mise config. On a fresh machine, mise use
+  # -g sets a default version; bare mise install leaves shims broken with
+  # "No version is set for shim". After the first apply, chezmoi owns the
+  # config, and mise use -g would rewrite it.
+  if [[ -f "$HOME/.config/mise/config.toml" ]]; then
+    run_task "Installing bootstrap tools (gh)" mise install --quiet github-cli
+  else
+    run_task "Installing bootstrap tools (gh)" mise use -g --quiet github-cli
+  fi
   show_version "Mise" 0 mise --version
 }
 
@@ -426,7 +432,9 @@ phase_chezmoi() {
   detail "applying dotfiles"
   # .chezmoi.toml.tmpl has no prompts, so init writes the config (sourceDir
   # plus machine data such as isWSL and isLima) and applies in one step.
-  run "Applying dotfiles" chezmoi init --source "$DOTFILES_DIR" --apply
+  # chezmoi opens /dev/tty for conflict prompts; --no-tty reads them from
+  # stdin, so a conflict fails with the file name behind the spinner.
+  run "Applying dotfiles" chezmoi init --source "$DOTFILES_DIR" --apply --no-tty
   ok "Applying dotfiles"
 }
 

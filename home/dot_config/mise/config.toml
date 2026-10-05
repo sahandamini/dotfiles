@@ -53,7 +53,7 @@ hadolint = "2.15.1"
 shellcheck = "latest"
 
 # Shell
-"github:herdrdev/herdr" = "0.9.1"
+"github:herdrdev/herdr" = "0.9.3"
 "oh-my-posh" = "latest"
 
 # AI
@@ -92,8 +92,8 @@ imagemagick = "latest"
 kubectl = "latest"
 helm = "latest"
 pulumi = "latest"
-railway = "5.62.1"
-"npm:varlock" = "1.21.0"
+railway = "5.63.1"
+"npm:varlock" = "1.21.1"
 
 # CLIs
 "bat" = "latest"
@@ -109,7 +109,7 @@ jq = "latest"
 "nix:erdtree" = "latest"
 "lazygit" = "latest"
 "pipx:copier" = "latest"
-pitchfork = "2.28.0"
+pitchfork = "2.29.0"
 
 "npm:chrome-devtools-axi" = "latest"
 "github:alexpasmantier/television" = "latest"

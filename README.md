@@ -96,6 +96,12 @@ Its README describes the upstream sync.
 
 List everything with `mise tasks --all`.
 
+## Staying current
+
+Run `dotfiles update` on each machine. It updates mise, pulls and applies the
+dotfiles (`chezmoi update --init`), installs new tools, and upgrades the rest
+(`mise up`). `dotfiles` alone opens the repo.
+
 ## Updating tools
 
 chezmoi writes `~/.config/mise/mise.lock` only when it is missing. After that,

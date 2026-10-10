@@ -1,0 +1,46 @@
+{{ if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# Claude Code reads only ~/.claude/skills/<name>/SKILL.md, one level deep. The
+# skills in ~/.agents/skills sit in group folders, so link each one by name.
+# Keep this compatible with the bash 3.2 that macOS ships.
+set -euo pipefail
+
+source_dir="$HOME/.agents/skills"
+link_dir="$HOME/.claude/skills"
+
+# An older setup linked the whole folder.
+if [[ -L $link_dir ]]; then
+  rm -- "$link_dir"
+fi
+mkdir -p "$link_dir"
+
+names=$'\n'
+while IFS= read -r -d '' skill_file; do
+  skill="${skill_file%/SKILL.md}"
+  name="${skill##*/}"
+  link="$link_dir/$name"
+  if [[ $names == *$'\n'"$name"$'\n'* ]]; then
+    printf 'warning: two skills are named %s; %s has no link\n' "$name" "$skill" >&2
+    continue
+  fi
+  names+="$name"$'\n'
+  if [[ -e $link && ! -L $link ]]; then
+    printf 'warning: %s is not a link; skill %s has no link\n' "$link" "$name" >&2
+    continue
+  fi
+  if [[ "$(readlink "$link" 2> /dev/null || true)" != "$skill" ]]; then
+    ln -sfn -- "$skill" "$link"
+  fi
+done < <(find "$source_dir" -name SKILL.md -print0 2> /dev/null | sort -z)
+
+# Remove links to skills that no longer exist. Leave other entries, such as
+# the skills that Claude Code syncs, alone.
+for link in "$link_dir"/* "$link_dir"/.[!.]*; do
+  [[ -L $link ]] || continue
+  target="$(readlink "$link")"
+  [[ $target == "$source_dir"/* ]] || continue
+  if [[ $names != *$'\n'"${link##*/}"$'\n'* || ! -f "$target/SKILL.md" ]]; then
+    rm -- "$link"
+  fi
+done
+{{ end -}}

@@ -37,6 +37,19 @@ alias k='kubectl'
 alias tree='erd'
 alias pr="gh-dash"
 alias gd='hunk diff --watch'
+dotfiles() {
+  case "${1:-}" in
+  '') cd {{ .chezmoi.workingTree | quote }} ;;
+  update)
+    # Update mise first: a newer lockfile can need a newer mise.
+    mise self-update -y && chezmoi update --init && mise install && mise up
+    ;;
+  *)
+    print -u2 'usage: dotfiles [update]'
+    return 2
+    ;;
+  esac
+}
 gr() {
   local root
   root=$(git rev-parse --show-toplevel 2>/dev/null) || return 1

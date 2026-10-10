@@ -856,3 +856,71 @@ def test_caddy_is_a_valid_optional_step(linux: Shell) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Optional steps: caddy,t3" in result.stdout
     assert "Services|caddy" in result.stdout
+
+
+def skills_hook() -> str:
+    template = (ROOT / "home/run_after_link-claude-skills.sh.tmpl").read_text()
+    hook = template.removeprefix('{{ if ne .chezmoi.os "windows" -}}\n')
+    hook = hook.removesuffix("{{ end -}}\n")
+    assert "{{" not in hook
+    return hook
+
+
+def test_claude_skills_link_each_nested_skill(tmp_path: Path) -> None:
+    skills = tmp_path / ".agents/skills"
+    for skill in ["browser-use", "tools/hunk", "workflow/pr", "tools/a/react-start"]:
+        (skills / skill).mkdir(parents=True)
+        (skills / skill / "SKILL.md").write_text("---\nname: x\n---\n")
+    (skills / "tools/a/react-start/server-components").mkdir()
+    (skills / "tools/a/react-start/server-components/SKILL.md").write_text("x")
+    (skills / "other/pr").mkdir(parents=True)
+    (skills / "other/pr/SKILL.md").write_text("x")
+    claude = tmp_path / ".claude"
+    claude.mkdir()
+    (claude / "skills").symlink_to(skills)
+
+    def run() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["bash", "-c", skills_hook()],
+            env={**os.environ, "HOME": str(tmp_path)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    result = run()
+    assert result.returncode == 0, result.stderr
+    links = claude / "skills"
+    assert links.is_dir() and not links.is_symlink()
+    expected = {
+        "browser-use": skills / "browser-use",
+        "hunk": skills / "tools/hunk",
+        "pr": skills / "other/pr",
+        "react-start": skills / "tools/a/react-start",
+        "server-components": skills / "tools/a/react-start/server-components",
+    }
+    assert {p.name: p.readlink() for p in links.iterdir()} == expected
+    assert "two skills are named pr" in result.stderr
+
+    (links / "synced").mkdir()
+    (links / "gone").symlink_to(skills / "removed")
+    (links / "elsewhere").symlink_to(tmp_path)
+    (skills / "tools/hunk/SKILL.md").unlink()
+    result = run()
+    assert result.returncode == 0, result.stderr
+    assert not (links / "hunk").is_symlink()
+    assert not (links / "gone").is_symlink()
+    assert (links / "synced").is_dir()
+    assert (links / "elsewhere").is_symlink()
+    assert (links / "pr").readlink() == skills / "other/pr"
+
+
+def test_claude_skills_hook_shellcheck() -> None:
+    result = subprocess.run(
+        ["shellcheck", "--shell=bash", "-"],
+        input=skills_hook(),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

@@ -81,6 +81,10 @@ These fix upstream bugs. Do not let a sync undo them.
   managed `wsl.conf` sets `appendWindowsPath = true`.
 - T3 Code: install `t3@latest` with `service install`, which also repairs an
   existing service. An old pin left a launcher that newer releases reject.
+- Claude skills: keep `run_after_link-claude-skills.sh`, which links each skill
+  into `~/.claude/skills` by name. Do not take upstream's single
+  `~/.claude/skills` → `~/.agents/skills` link. Claude Code reads only one
+  folder level, and the skills sit in group folders.
 - T3 Code settings: point opencode at the mise shim, and repair an existing
   settings file. mise prunes the old version folder after an upgrade, so a
   versioned path breaks.

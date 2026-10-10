@@ -1,4 +1,5 @@
 local wezterm = require 'wezterm'
+local act = wezterm.action
 
 {{- $t := index .themes .theme }}
 local scheme_light = {{ get $t "ghostty_light" | default $t.ghostty | quote }}
@@ -16,4 +17,8 @@ return {
 	color_scheme = appearance:find 'Dark' and scheme_dark or scheme_light,
 	font_size = 12,
 	default_domain = 'WSL:' .. wsl_distro,
+	keys = {
+		-- Ctrl+Shift+V also pastes. Ctrl+V matches other Windows apps.
+		{ key = 'v', mods = 'CTRL', action = act.PasteFrom 'Clipboard' },
+	},
 }

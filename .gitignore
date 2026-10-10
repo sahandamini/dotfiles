@@ -46,3 +46,4 @@ home/dot_config/xdg-terminals.list
 # Hermes
 home/dot_config/systemd/user/hermes-gateway.service
 home/dot_config/systemd/user/default.target.wants/hermes-gateway.service
+.pytest_cache/

@@ -16,8 +16,12 @@ Manage home-directory dotfiles with Chezmoi. The source repo lives at
 
 ### Notes
 
-- Browser automation connects from the server to a browser on a client over CDP,
-  or falls back to a headless browser on the server.
+- Browser automation prefers Chrome on the client over CDP. Detect the online
+  client with `tailscale status`. Ask the user to start Chrome with remote
+  debugging when no client browser runs. Use the server headless browser only
+  when no client is reachable. Use the full Playwright Chromium with
+  `--headless=new`; never use `chrome-headless-shell`. Set
+  `CHROME_DEVTOOLS_AXI_BROWSER_URL` on every axi call.
 - URLs that a client must load stay reachable from the client network (Tailscale
   or published DNS), never server-side localhost. No shared filesystem exists
   between server and clients. When the user must view a file, start a loopback
@@ -30,14 +34,18 @@ Manage home-directory dotfiles with Chezmoi. The source repo lives at
   Pitchfork proxy on loopback port 9443. App URLs are
   `https://<name>.lab.sahandamini.dev`, with a public Let's Encrypt certificate.
   Hostnames are single-level: slugs flatten directory dots to hyphens
-  (`app.worktree` serves as `app-worktree`). The wildcard certificate covers one
-  level only. Register a worktree with
+  (`app.worktree` serves as `app-worktree`). Nested hostnames
+  (`worktree.app.lab…`) and direct `:9443` access do not work: the wildcard
+  certificate covers one level, and the proxy binds loopback only. Register a
+  worktree with
   `pitchfork proxy add <slug> --daemon dev --dir <worktree-root>`.
 - Port ownership on the Tailscale IP: Caddy owns port 443. Ad-hoc Tailscale
   Serve publishes set an explicit `--https` port in the 8443–8499 range, never
   the default 443.
 - For T3 Code dev servers, use `vp run dev --share`; do not configure Tailscale
   Serve by hand.
+- Herdr panes run non-login shells on Linux. Keep `shell_mode = "login"` in
+  `~/.config/herdr/config.toml`, so `.zprofile` PATH setup runs.
 
 ## Rules
 

@@ -1,25 +1,29 @@
-monorepo_root = true
-
-[settings]
-experimental = true
-
 [tools]
-node = "24"
-
-[monorepo]
-config_roots = ["tools/*"]
-
-[shell_alias]
-dots = "cd {{config_root}}"
-
-[tasks.install]
-description = "Install all dotfiles tools"
-depends = ["//tools/...:install"]
+uv = "0.12.19"
+chezmoi = "2.73.0"
 
 [tasks.check]
-description = "Run all checks"
-depends = ["//tools/...:check"]
+description = "Check shell scripts, Python style, and Python types"
+dir = "{{config_root}}"
+run = [
+  "shellcheck -x bootstrap.sh setup/*.sh setup/linux/*.sh scripts/*.sh",
+  "uv run --locked ruff check",
+  "uv run --locked ruff format --check",
+  "uv run --locked basedpyright",
+]
 
-[tasks.apply]
-description = "Apply dotfiles with chezmoi"
-run = "chezmoi apply"
+[tasks.test]
+description = "Run setup regression tests"
+dir = "{{config_root}}"
+run = "uv run --locked pytest"
+
+[tasks."test:e2e"]
+description = "Run the real Ubuntu core-install smoke test"
+dir = "{{config_root}}"
+run = "uv run --locked pytest --e2e -m e2e -v"
+
+[tasks."debug:linux"]
+description = "Run the local installer in a fresh Ubuntu container"
+dir = "{{config_root}}"
+raw = true
+run = "bash scripts/debug-linux.sh"

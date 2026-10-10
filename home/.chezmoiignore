@@ -26,3 +26,14 @@ dotfiles
 .config/herdr/herdr.sock
 .config/herdr/release-notes.json
 .config/herdr/session.json
+{{ if ne .chezmoi.os "windows" }}
+.config/wezterm
+{{ else }}
+{{/* Native Windows gets only the files that Windows programs read. WSL
+     applies everything else. */ -}}
+**
+!AGENTS.md
+!.ssh{,/**}
+!.config
+!.config/{opencode,wezterm}{,/**}
+{{ end }}

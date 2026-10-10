@@ -4,42 +4,84 @@ Personal machine setup managed with chezmoi and mise.
 
 ## Bootstrap
 
-Run the wrapper on macOS or Linux (the Lima VM, WSL, servers). It detects the
-OS and runs `install-mac.sh` or `install-linux.sh`. Options pass through; run it
-with `--help` to list them.
+Run the bootstrap script for your OS. The shell script detects the OS and runs
+`setup/linux.sh` or `setup/darwin.sh`.
+
+macOS and Linux (the Lima VM, WSL, servers):
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sahandamini/dotfiles/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sahandamini/dotfiles/main/bootstrap.sh)
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/sahandamini/dotfiles/main/bootstrap.ps1 | iex
 ```
 
 The repo lives at `~/.local/share/chezmoi`, chezmoi's default source directory.
 Chezmoi links `~/dotfiles` to it.
 
-On macOS, the first apply runs `run_once_after_install-darwin.sh`. It installs
-the Xcode CLT and mise, signs in to GitHub, installs Nix (multi-user, asks for
-sudo) for the `nix:` tools, and runs `mise install`. mise then manages chezmoi
-itself.
+### Options
+
+Pass bootstrap options after the command:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/sahandamini/dotfiles/main/bootstrap.sh) --profile core --yes
+```
+
+Run `bootstrap.sh --help` to list options.
+
+- Linux core installs base packages, mise, Nix, dotfiles, and the login shell.
+- Linux full also installs the managed tools. An interactive checklist selects
+  the optional services: Docker, Tailscale, Pitchfork, Caddy (Lima VM only), and
+  T3 Code. Without a terminal, select them with
+  `--with docker,tailscale,pitchfork,caddy,t3`.
+- `--skip-managed-tools` skips the managed tool catalog during setup.
+- The summary lists each installed CLI that is not signed in, with its login
+  command.
+
+### macOS
+
+`setup/darwin.sh` installs the Xcode CLT and mise, signs in to GitHub, installs
+Nix (multi-user, asks for sudo) for the `nix:` tools, applies the dotfiles, and
+runs `mise install`.
+
+### Windows
+
+Windows development runs in WSL. Run the Linux bootstrap inside WSL. Its
+dotfiles apply also writes `.wslconfig` and the WezTerm config on the Windows
+side.
+
+`bootstrap.ps1` is optional. It installs Git, mise, chezmoi, and opencode on
+Windows, then applies only the files that Windows programs read: `.ssh`, the
+opencode and WezTerm configs, and `AGENTS.md`. After it runs, native Windows
+chezmoi owns the WezTerm config, and WSL stops writing it.
 
 ## Layout
 
-| Path                               | What it is                               |
-| ---------------------------------- | ---------------------------------------- |
-| `home/`                            | chezmoi source state for `$HOME`         |
-| `home/.chezmoidata.toml`           | shared data: app domain, Lima VM, themes |
-| `home/dot_config/mise/config.toml` | machine-wide toolchains and global tasks |
-| `home/dot_config/mise/mise.lock`   | pinned versions for macOS and Linux      |
+| Path                                      | What it is                               |
+| ----------------------------------------- | ---------------------------------------- |
+| `bootstrap.sh`, `bootstrap.ps1`           | entry points that fetch the source       |
+| `setup/`                                  | macOS and Linux machine setup            |
+| `tests/`                                  | setup regression and smoke tests         |
+| `home/`                                   | chezmoi source state for `$HOME`         |
+| `home/.chezmoidata.toml`                  | shared data: app domain, Lima VM, themes |
+| `home/dot_config/mise/config.toml`        | machine-wide toolchains and global tasks |
+| `home/dot_config/mise/create_mise.lock`   | first lockfile for a new machine         |
 
-Tools reach PATH through mise and repository-local tool packages. Change the
-terminal theme (Ghostty, WezTerm, Herdr, nvim) in `home/.chezmoidata.toml`.
+Change the terminal theme (Ghostty, WezTerm, Herdr, nvim) in
+`home/.chezmoidata.toml`.
 
 ## Commands
 
 Run from the repo root:
 
 ```bash
-mise run check                    # lint + test every tool
-mise run install                  # install personal tools onto PATH
-mise run apply                    # update $HOME from the source state
+mise run check                    # shellcheck, ruff, and basedpyright
+mise run test                     # setup regression tests
+mise run test:e2e                 # real Ubuntu setup in Docker
+mise run debug:linux              # local setup in a fresh Ubuntu container
 ```
 
 Global (works from any directory):
@@ -56,13 +98,15 @@ List everything with `mise tasks --all`.
 
 ## Updating tools
 
-`mise up` upgrades tools on one machine and rewrites its
-`~/.config/mise/mise.lock`. Copy the result into the repo with entries for all
-four platforms, then commit it:
+chezmoi writes `~/.config/mise/mise.lock` only when it is missing. After that,
+each machine owns its lockfile, and `mise up` upgrades it there.
+
+To refresh the lockfile for new machines, regenerate it with entries for all
+four platforms, copy it into the repo, then commit it:
 
 ```bash
 GITHUB_TOKEN=$(gh auth token) mise lock --global --platform linux-arm64,linux-x64,macos-arm64,macos-x64
-chezmoi re-add ~/.config/mise/mise.lock
+cp ~/.config/mise/mise.lock "$(chezmoi source-path ~/.config/mise/mise.lock)"
 ```
 
 Bump pinned versions (`mise outdated --bump` lists them) in
@@ -90,15 +134,11 @@ domain control with a Porkbun DNS record, so it needs a Porkbun API key.
 
 1. In Porkbun, add an A record `*.lab` that points to the VM's Tailscale IP.
 2. In Porkbun, create an API key. Turn on API access for `sahandamini.dev` only.
-3. On the VM, write the key to `~/.config/caddy-lab/env` (mode 600). The
-   command uses zsh syntax:
+3. Run the bootstrap on the VM and select Caddy. Setup asks for the key, writes
+   it to `~/.config/caddy-lab/env` (mode 600), and starts Caddy.
 
-   ```zsh
-   umask 077; read -rs 'k?API key: '; echo; read -rs 's?Secret key: '; echo
-   printf 'PORKBUN_API_KEY=%s\nPORKBUN_API_SECRET_KEY=%s\n' "$k" "$s" > ~/.config/caddy-lab/env; unset k s
-   ```
-
-4. Run `mise run setup-caddy`. Read the logs with `journalctl -u caddy-lab -f`.
+To change the key later, delete `~/.config/caddy-lab/env` and run the bootstrap
+again. Read the logs with `journalctl -u caddy-lab -f`.
 
 ## Updating from upstream
 

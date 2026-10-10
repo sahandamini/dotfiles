@@ -41,10 +41,13 @@ if ! cmp -s "$temp_dir/wslconfig" "$windows_home/.wslconfig"; then
 fi
 
 # WezTerm runs on Windows and reads %USERPROFILE%\.config\wezterm\wezterm.lua.
+# After bootstrap.ps1, native Windows chezmoi owns that file. A second writer
+# would cause a conflict prompt on the next Windows apply.
 cat > "$temp_dir/wezterm.lua" <<'EOF'
 {{ template "wezterm.lua" . -}}
 EOF
-if ! cmp -s "$temp_dir/wezterm.lua" "$windows_home/.config/wezterm/wezterm.lua"; then
+if [[ ! -d "$windows_home/.config/chezmoi" ]] \
+  && ! cmp -s "$temp_dir/wezterm.lua" "$windows_home/.config/wezterm/wezterm.lua"; then
   install -d "$windows_home/.config/wezterm"
   install -m 644 "$temp_dir/wezterm.lua" "$windows_home/.config/wezterm/wezterm.lua"
 fi

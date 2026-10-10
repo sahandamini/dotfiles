@@ -6,7 +6,8 @@ local scheme_dark = {{ get $t "ghostty_dark" | default $t.ghostty | quote }}
 
 local appearance = wezterm.gui and wezterm.gui.get_appearance() or 'Dark'
 
--- Open the WSL distro that chezmoi was applied from.
+-- Open the WSL distro that chezmoi was applied from. Native Windows chezmoi
+-- has no WSL_DISTRO_NAME and uses Ubuntu.
 local wsl_distro = {{ env "WSL_DISTRO_NAME" | default "Ubuntu" | quote }}
 
 return {

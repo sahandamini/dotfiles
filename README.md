@@ -99,8 +99,12 @@ List everything with `mise tasks --all`.
 ## Staying current
 
 Run `dotfiles update` on each machine. It updates mise, pulls and applies the
-dotfiles (`chezmoi update --init`), installs new tools, and upgrades the rest
-(`mise up`). `dotfiles` alone opens the repo.
+dotfiles (`chezmoi update --init`), installs new tools, upgrades the rest
+(`mise up`), and syncs the nvim plugins (`Lazy! sync`). `dotfiles` alone opens
+the repo.
+
+chezmoi writes `~/.config/mise/mise.lock` and `~/.config/nvim/lazy-lock.json`
+only when they are missing. After that, each machine owns its lockfiles.
 
 ## Updating tools
 

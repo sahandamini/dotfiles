@@ -41,6 +41,8 @@ Keep:
 - Television with its built-in channels plus the `git-log` graph override.
 - hunk with `vcs = "git"`.
 - `chrome-devtools-axi` for browser automation.
+- `lazy-lock.json` as `create_lazy-lock.json`. Each machine owns its nvim
+  lockfile, and `dotfiles update` runs `Lazy! sync`.
 - `.zshrc` fully managed (`dot_zshrc.tmpl`). It sources the Vite+ env, so Vite+
   does not edit it.
 - The Lima VM `devbox` with no host mounts and `minimumLimaVersion: 2.2.0`.

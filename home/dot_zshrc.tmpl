@@ -163,8 +163,7 @@ export PATH
 # ── Vite+ ─────────────────────────────────────────────────────
 # Vite+ appends this line to every shell profile that does not name the env
 # file; keeping it here stops that edit. Its shims manage node, npm, pnpm,
-# yarn, and bun.
-{{ $vpEnv := ternary "$HOME/.vite-plus/env" "$HOME/.config/vite-plus/env" (eq .chezmoi.os "darwin") -}}
-if [ -f "{{ $vpEnv }}" ]; then
-  . "{{ $vpEnv }}"
+# yarn, and bun. Since 1.2.0, Linux uses ~/.vite-plus like macOS.
+if [ -f "$HOME/.vite-plus/env" ]; then
+  . "$HOME/.vite-plus/env"
 fi

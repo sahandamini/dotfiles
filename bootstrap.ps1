@@ -27,7 +27,7 @@ foreach ($package in $packages.GetEnumerator()) {
     Get-Command $package.Key -ErrorAction Stop | Out-Null
 }
 
-mise.exe -C $HOME use --global opencode@latest chezmoi@latest
+mise.exe -C $HOME use --global node@22 npm:@opencode/cli@latest chezmoi@latest
 if ($LASTEXITCODE -ne 0) {
     throw "Mise tool installation failed with exit code $LASTEXITCODE."
 }

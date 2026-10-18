@@ -199,7 +199,7 @@ phase_t3() {
     return
   fi
   if [[ $SKIP_MANAGED_TOOLS == true ]]; then
-    run 'Installing T3 Code prerequisites' --live mise install node opencode jq
+    run 'Installing T3 Code prerequisites' --live mise install node npm:@opencode/cli jq
   fi
   detail 'T3 Code installs a systemd user service for pairing remote devices'
   local opencode_bin t3_settings node_bin_dir installed=false

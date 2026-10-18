@@ -626,7 +626,7 @@ phase_t3
 """)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "--live mise install pitchfork" in result.stdout
-    assert "--live mise install node opencode jq" in result.stdout
+    assert "--live mise install node npm:@opencode/cli jq" in result.stdout
 
 
 def test_debug_runner_forwards_managed_skip(linux: Shell, tmp_path: Path) -> None:

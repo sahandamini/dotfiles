@@ -1,7 +1,9 @@
 {{ if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
-# Claude Code reads only ~/.claude/skills/<name>/SKILL.md, one level deep. The
-# skills in ~/.agents/skills sit in group folders, so link each one by name.
+# Link each skill into ~/.claude/skills by name instead of linking the whole
+# folder. Claude Code keeps its account-synced skills in ~/.claude/skills/synced;
+# a folder link would move them into ~/.agents/skills, where other agents load
+# them.
 # Keep this compatible with the bash 3.2 that macOS ships.
 set -euo pipefail
 

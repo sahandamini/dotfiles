@@ -72,10 +72,6 @@ show_version() {
   ok "$label" "${version%,}"
 }
 
-fetch() {
-  curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 "$@"
-}
-
 run_script() {
   local label="$1" url="$2" interpreter="$3"
   shift 3
@@ -125,47 +121,30 @@ run() {
   if [[ -n $LOG_FILE ]]; then
     cat "$log" >> "$LOG_FILE"
   fi
-  if [[ ${rc:-0} != 0 ]]; then
+  if [[ ${rc:-0} != 0 && $live == false ]]; then
     cat "$log" > /dev/tty
   fi
   rm -f "$log"
   return "${rc:-0}"
 }
 
-run_live() (
-  local label="$1" log="$2" pid rc=0 rows=0 width line
+run_live() {
+  local label="$1" log="$2"
   shift 2
-  width="$(tput cols 2> /dev/null || printf '80')"
-  width=$((width > 1 ? width - 1 : 1))
-  "$@" > "$log" 2>&1 &
-  pid=$!
-  trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
-    { ((rows == 0)) || printf "\033[%sA" "$rows"; printf "\r\033[J"; } > /dev/tty' EXIT
-  trap 'exit 130' INT
-  trap 'exit 143' TERM
-  while kill -0 "$pid" 2> /dev/null; do
-    {
-      ((rows == 0)) || printf '\033[%sA' "$rows"
-      printf '\r\033[J'
-      line="  $label..."
-      printf '%s\n' "${line:0:width}"
-      rows=1
-      # Command escape sequences can move the cursor outside the temporary viewport.
-      while IFS= read -r line; do
-        printf '    %s\n' "${line:0:width > 4 ? width - 4 : 0}"
-        rows=$((rows + 1))
-      done < <(tail -n 8 "$log" | sed -E $'s/\033\\[[0-?]*[ -/]*[@-~]//g; s/[[:cntrl:]]//g')
-    } > /dev/tty
-    sleep 0.1
-  done
-  wait "$pid" || rc=$?
-  trap - EXIT
-  {
-    ((rows == 0)) || printf '\033[%sA' "$rows"
-    printf '\r\033[J'
-  } > /dev/tty
-  return "$rc"
-)
+  printf '  %s...\n' "$label" > /dev/tty
+  "$@" 2>&1 | tee "$log" > /dev/tty
+}
+
+# Probes must not trigger tool downloads, hooks, or network access through mise shims.
+mise_probe() {
+  MISE_AUTO_INSTALL=false MISE_OFFLINE=true MISE_NO_ENV=true MISE_NO_HOOKS=true timeout 5 "$@"
+}
+
+apt_install() {
+  local label="$1"
+  shift
+  run "$label" --sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
+}
 
 run_task() {
   local label="$1"

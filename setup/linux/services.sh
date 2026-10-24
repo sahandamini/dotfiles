@@ -1,7 +1,56 @@
 #!/usr/bin/env bash
 
+# Optional step catalog. Add a step here and define its label, probes, and phase below.
+SETUP_STEPS=(docker tailscale pitchfork caddy t3 wsl_interop)
+
+setup_step_valid() {
+  local step
+  for step in "${SETUP_STEPS[@]}"; do
+    [[ $1 != "$step" ]] || return 0
+  done
+  return 1
+}
+
+DOCKER_CLIENT_LINK=/usr/bin/docker
+
+# Docker Desktop for Windows links its client into WSL. The link dangles while Desktop is stopped.
 docker_installed() {
-  command -v docker > /dev/null 2>&1
+  command -v docker > /dev/null 2>&1 || [[ -L $DOCKER_CLIENT_LINK ]]
+}
+
+# Ubuntu derivatives report their own codename; Docker publishes the Ubuntu base codename.
+ubuntu_codename() (
+  # shellcheck source=/dev/null
+  . "$HOST_OS_RELEASE"
+  [[ ${ID:-} == ubuntu || ${ID_LIKE:-} == *ubuntu* ]] || die "Docker setup supports Ubuntu only (found ${ID:-unknown})"
+  printf '%s' "${UBUNTU_CODENAME:-$VERSION_CODENAME}"
+)
+
+docker_engine_installed() {
+  command -v dockerd > /dev/null 2>&1
+}
+
+setup_step_available() {
+  case "$1" in
+  caddy) host_is_lima ;;
+  wsl_interop) host_is_wsl ;;
+  *) return 0 ;;
+  esac
+}
+
+# An explicit --with request replaces the defaults for services.
+setup_step_default_selected() {
+  local step="$1" requested="${2:-}"
+  [[ $step != mise_tools ]] || return 0
+  if [[ -n $requested ]]; then
+    [[ ,$requested, == *,"$step",* ]]
+    return
+  fi
+  case "$step" in
+  docker) ! host_is_wsl ;;
+  wsl_interop) return 1 ;;
+  *) return 0 ;;
+  esac
 }
 
 tailscale_installed() {
@@ -26,6 +75,7 @@ setup_step_label() {
   pitchfork) printf 'Pitchfork' ;;
   caddy) printf 'Caddy' ;;
   t3) printf 'T3 Code' ;;
+  wsl_interop) printf 'WSL Windows PATH and automount' ;;
   esac
 }
 
@@ -36,6 +86,7 @@ setup_step_installed() {
   pitchfork) [[ -n "$(setup_step_version pitchfork)" ]] ;;
   caddy) caddy_installed ;;
   t3) t3_service_installed ;;
+  wsl_interop) wsl_windows_path_disabled && wsl_automount_disabled ;;
   *) return 1 ;;
   esac
 }
@@ -58,35 +109,56 @@ setup_step_version() {
     ;;
   *) return 0 ;;
   esac
-  # Version probes must not trigger downloads through mise shims.
-  line="$(MISE_AUTO_INSTALL=false MISE_OFFLINE=true MISE_NO_ENV=true MISE_NO_HOOKS=true \
-    timeout 5 "${probe[@]}" 2> /dev/null)" || return 0
+  line="$(mise_probe "${probe[@]}" 2> /dev/null)" || return 0
   read -r -a fields <<< "$line"
   version="${fields[$field]:-}"
   [[ $version =~ ^v?[0-9] ]] || return 0
   printf '%s' "${version%,}"
 }
 
+: "${WSL_CONF:=/etc/wsl.conf}"
+
+# git config is a section-aware INI editor; it keeps other sections and comments.
+wsl_windows_path_disabled() {
+  [[ "$(git config -f "$WSL_CONF" --type=bool --get interop.appendWindowsPath 2> /dev/null)" == false ]]
+}
+
+wsl_automount_disabled() {
+  [[ "$(git config -f "$WSL_CONF" --type=bool --get automount.enabled 2> /dev/null)" == false ]]
+}
+
+phase_wsl_interop() {
+  run_task 'Disabling Windows PATH interop' --sudo \
+    git config -f "$WSL_CONF" --replace-all interop.appendWindowsPath false
+  run_task 'Disabling Windows drive automount' --sudo \
+    git config -f "$WSL_CONF" --replace-all automount.enabled false
+  NOTES+=("WSL interop: run 'wsl.exe --shutdown' on the Windows host to apply appendWindowsPath=false and automount.enabled=false")
+}
+
 phase_docker() {
   if ! docker_installed; then
+    local codename
+    codename="$(ubuntu_codename)"
     run_task 'Creating the Docker key directory' --sudo install -m 0755 -d /etc/apt/keyrings
     run_task 'Downloading the Docker key' --sudo curl -fsSL --retry 3 \
       https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
     run_task 'Setting Docker key permissions' --sudo chmod a+r /etc/apt/keyrings/docker.asc
-    # shellcheck source=/dev/null
-    . /etc/os-release
     run_task 'Adding the Docker repository' --sudo tee /etc/apt/sources.list.d/docker.list \
-      <<< "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable"
+      <<< "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${codename} stable"
     run_task 'Updating the Docker package index' --sudo apt-get update
-    run 'Installing Docker' --sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    apt_install 'Installing Docker' \
       docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   fi
   show_version Docker 2 docker --version
+  if ! docker_engine_installed; then
+    detail 'docker client only (Docker Desktop); skipping group and service setup'
+    return
+  fi
   if ! id -nG "$USER" | grep -qw docker; then
     run_task 'Adding user to docker group' --sudo usermod -aG docker "$USER"
     NOTES+=('Docker group: log out and back in to run docker without sudo')
   fi
-  if [[ $HAS_SYSTEMD == true ]]; then
+  if host_has_systemd; then
     run_task 'Enabling Docker' --sudo systemctl enable --now docker
   else
     detail 'no systemd; start dockerd manually with: sudo dockerd'
@@ -94,7 +166,7 @@ phase_docker() {
 }
 
 phase_tailscale() {
-  if [[ $HAS_SYSTEMD == false ]]; then
+  if ! host_has_systemd; then
     detail 'no systemd; skipping Tailscale service setup'
     return
   fi
@@ -121,7 +193,7 @@ phase_tailscale() {
 }
 
 phase_pitchfork() {
-  if [[ $HAS_SYSTEMD == false ]]; then
+  if ! host_has_systemd; then
     detail 'no systemd; skipping Pitchfork URL setup'
     return
   fi
@@ -151,7 +223,7 @@ prompt_porkbun_keys() {
 }
 
 phase_caddy() {
-  if [[ $IS_LIMA == false || $HAS_SYSTEMD == false ]]; then
+  if ! host_is_lima || ! host_has_systemd; then
     detail 'not a Lima VM with systemd; skipping Caddy'
     return
   fi
@@ -194,7 +266,7 @@ t3_settings_current() {
 }
 
 phase_t3() {
-  if [[ $HAS_SYSTEMD == false ]]; then
+  if ! host_has_systemd; then
     detail 'no systemd; skipping T3 Code'
     return
   fi
@@ -202,7 +274,7 @@ phase_t3() {
     run 'Installing T3 Code prerequisites' --live mise install node npm:@opencode/cli jq
   fi
   detail 'T3 Code installs a systemd user service for pairing remote devices'
-  local opencode_bin t3_settings node_bin_dir installed=false
+  local opencode_bin t3_settings node_bin_dir
   opencode_bin="$(t3_opencode_shim)"
   t3_settings="$HOME/.t3/userdata/settings.json"
   if ! t3_settings_current "$opencode_bin" "$t3_settings"; then
@@ -210,14 +282,18 @@ phase_t3() {
   fi
   node_bin_dir="$(dirname "$(mise -C "$DOTFILES_DIR" which node)")"
   if [[ ! -x /usr/bin/g++ ]]; then
-    run_task 'Installing build tools' --sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential
+    apt_install 'Installing build tools' build-essential
   fi
-  ! t3_service_installed || installed=true
-  # service install also repairs an existing service. A release can need a
-  # newer launcher than an old pin provides, so install the latest release.
-  run_task 'Installing T3 Code' env PATH="$node_bin_dir:/usr/bin:/bin" CC=/usr/bin/gcc CXX=/usr/bin/g++ \
-    NPM_CONFIG_CACHE="$HOME/.cache/npm-t3" "$node_bin_dir/npx" --yes t3@latest service install
-  if [[ $installed == false ]]; then
+  local fresh=false
+  t3_service_installed || fresh=true
+  # An unresolved active version means a broken service, so reinstall to repair it.
+  # After the first install, `t3 update` moves the service to new releases. A pin
+  # here would only age: an old pin once left a launcher that newer releases reject.
+  if [[ $fresh == true || -z "$(setup_step_version t3)" ]]; then
+    run_task 'Installing T3 Code' env PATH="$node_bin_dir:/usr/bin:/bin" CC=/usr/bin/gcc CXX=/usr/bin/g++ \
+      NPM_CONFIG_CACHE="$HOME/.cache/npm-t3" "$node_bin_dir/npx" --yes t3@latest service install
+  fi
+  if [[ $fresh == true ]]; then
     NOTES+=($'Pair a device:\n  t3 pair --tailscale --tailscale-serve-port 8443\n  then scan the QR code')
   fi
 }

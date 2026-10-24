@@ -4,13 +4,13 @@ set -Eeuo pipefail
 PROFILE="${DOTFILES_PROFILE:-full}"
 ASSUME_YES="${DOTFILES_ASSUME_YES:-false}"
 DOTFILES_DIR="${DOTFILES_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-IS_LIMA=false
-HAS_SYSTEMD=false
 OPTIONAL_STEPS="${DOTFILES_WITH:-}"
 SKIP_MANAGED_TOOLS="${DOTFILES_SKIP_MANAGED_TOOLS:-false}"
 
 # shellcheck source=setup/common.sh
 source "$DOTFILES_DIR/setup/common.sh"
+# shellcheck source=setup/linux/host.sh
+source "$DOTFILES_DIR/setup/linux/host.sh"
 # shellcheck source=setup/linux/runtime.sh
 source "$DOTFILES_DIR/setup/linux/runtime.sh"
 # shellcheck source=setup/linux/tools.sh
@@ -23,72 +23,75 @@ validate_optional_steps() {
   true | false) ;;
   *) die 'DOTFILES_SKIP_MANAGED_TOOLS must be true or false' ;;
   esac
-  local step
+  local step expected
   local -a steps
+  printf -v expected '%s, ' "${SETUP_STEPS[@]}"
   IFS=, read -r -a steps <<< "$OPTIONAL_STEPS"
   for step in "${steps[@]}"; do
-    case "$step" in
-    docker | tailscale | pitchfork | caddy | t3) ;;
-    *) die "unknown optional step: $step (expected docker, tailscale, pitchfork, caddy, t3)" ;;
-    esac
+    setup_step_valid "$step" || die "unknown optional step: $step (expected ${expected%, })"
+    setup_step_available "$step" || die "optional step is not available on this host: $step"
   done
   [[ $PROFILE == full || -z $OPTIONAL_STEPS ]] || die '--with requires the full profile'
 }
 
+choose_setup_steps() {
+  local selection label step status version action row header requested="$OPTIONAL_STEPS"
+  local -a selected=() options=()
+  local -a ready=()
+  for step in mise_tools "${SETUP_STEPS[@]}"; do
+    setup_step_available "$step" || continue
+    label="$(setup_step_label "$step")"
+    if setup_step_installed "$step"; then
+      version="$(setup_step_version "$step")"
+      printf -v row '    ✓ %-20s %-28s %s' "$label" "${version:-Version unavailable}" 'Ready'
+      ready+=("$row")
+      continue
+    fi
+    action=Install
+    case "$step" in
+    mise_tools)
+      status="$(managed_tools_status)"
+      [[ $status != *'; sync' ]] || action=Sync
+      status="${status%%;*}"
+      ;;
+    *) status='Not installed' ;;
+    esac
+    printf -v row '%-20s %-28s %s' "$label" "$status" "$action"
+    options+=("$row|$step")
+    [[ $step != mise_tools || $SKIP_MANAGED_TOOLS != true ]] || continue
+    ! setup_step_default_selected "$step" "$requested" || selected+=("$row")
+  done
+  printf -v row '      %-20s %-28s %s' 'Tool' 'Version / Status' 'Action'
+  header="$row"
+  for row in "${ready[@]}"; do
+    header+=$'\n\033[38;5;82m'"$row"$'\033[0m'
+  done
+  header+=$'\n\nChoose setup steps'
+  selection="$(gum_ui choose --no-limit --label-delimiter '|' --header "$header" \
+    --cursor-prefix '[ ] ' --selected-prefix '[x] ' --unselected-prefix '[ ] ' \
+    --selected "$(IFS=,; printf '%s' "${selected[*]}")" \
+    "${options[@]}" < /dev/tty 2> /dev/tty)" || return $?
+  OPTIONAL_STEPS=''
+  SKIP_MANAGED_TOOLS=true
+  while IFS= read -r step; do
+    if [[ $step == mise_tools ]]; then
+      SKIP_MANAGED_TOOLS=false
+    elif setup_step_valid "$step"; then
+      OPTIONAL_STEPS+=",$step"
+    fi
+  done <<< "$selection"
+  OPTIONAL_STEPS="${OPTIONAL_STEPS#,}"
+}
+
 configure_sections() {
   if [[ $PROFILE == full && $INTERACTIVE == true ]]; then
-    local selection label step status version action row header
-    local -a selected=() options=()
-    local -a ready=()
-    for step in mise_tools docker tailscale pitchfork caddy t3; do
-      # Caddy serves the Lima VM only.
-      [[ $step != caddy || $IS_LIMA == true ]] || continue
-      label="$(setup_step_label "$step")"
-      if setup_step_installed "$step"; then
-        version="$(setup_step_version "$step")"
-        printf -v row '    ✓ %-20s %-28s %s' "$label" "${version:-Version unavailable}" 'Ready'
-        ready+=("$row")
-        continue
-      fi
-      action=Install
-      case "$step" in
-      mise_tools)
-        status="$(managed_tools_status)"
-        [[ $status != *'; sync' ]] || action=Sync
-        status="${status%%;*}"
-        ;;
-      *) status='Not installed' ;;
-      esac
-      printf -v row '%-20s %-28s %s' "$label" "$status" "$action"
-      options+=("$row|$step")
-      [[ $step != mise_tools || $SKIP_MANAGED_TOOLS != true ]] || continue
-      selected+=("$row")
-    done
-    printf -v row '      %-20s %-28s %s' 'Tool' 'Version / Status' 'Action'
-    header="$row"
-    for row in "${ready[@]}"; do
-      header+=$'\n\033[38;5;82m'"$row"$'\033[0m'
-    done
-    header+=$'\n\nChoose setup steps'
-    selection="$(gum_ui choose --no-limit --label-delimiter '|' --header "$header" \
-      --cursor-prefix '[ ] ' --selected-prefix '[x] ' --unselected-prefix '[ ] ' \
-      --selected "$(IFS=,; printf '%s' "${selected[*]}")" \
-      "${options[@]}" < /dev/tty 2> /dev/tty)" || return $?
-    OPTIONAL_STEPS=''
-    SKIP_MANAGED_TOOLS=true
-    while IFS= read -r step; do
-      case "$step" in
-      mise_tools) SKIP_MANAGED_TOOLS=false ;;
-      docker | tailscale | pitchfork | caddy | t3) OPTIONAL_STEPS+=",$step" ;;
-      esac
-    done <<< "$selection"
-    OPTIONAL_STEPS="${OPTIONAL_STEPS#,}"
+    choose_setup_steps || return $?
   fi
   SECTIONS=('System|apt git mise nix' 'Dotfiles|dotfiles')
   if [[ $PROFILE == full ]]; then
     [[ $SKIP_MANAGED_TOOLS == true ]] || SECTIONS+=('Developer Tools|mise_tools')
     local services='' service
-    for service in docker tailscale pitchfork caddy t3; do
+    for service in "${SETUP_STEPS[@]}"; do
       [[ ,$OPTIONAL_STEPS, != *,"$service",* ]] || services+=" $service"
     done
     [[ -z $services ]] || SECTIONS+=("Services|${services# }")
@@ -111,12 +114,6 @@ main() {
   cd "$HOME"
   if [[ -t 1 && $ASSUME_YES == false ]]; then
     INTERACTIVE=true
-  fi
-  if [[ -x /usr/local/bin/lima-guestagent ]]; then
-    IS_LIMA=true
-  fi
-  if [[ -d /run/systemd/system ]]; then
-    HAS_SYSTEMD=true
   fi
   LOG_FILE="$(mktemp "${TMPDIR:-/tmp}/dotfiles-setup-XXXXXX.log")"
   trap on_err ERR

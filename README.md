@@ -34,9 +34,14 @@ Run `bootstrap.sh --help` to list options.
 
 - Linux core installs base packages, mise, Nix, dotfiles, and the login shell.
 - Linux full also installs the managed tools. An interactive checklist selects
-  the optional services: Docker, Tailscale, Pitchfork, Caddy (Lima VM only), and
-  T3 Code. Without a terminal, select them with
-  `--with docker,tailscale,pitchfork,caddy,t3`.
+  the optional steps: Docker, Tailscale, Pitchfork, Caddy (Lima VM only), T3
+  Code, and WSL Windows PATH and automount (WSL only, off by default). Without a
+  terminal, select them with `--with docker,tailscale,pitchfork,caddy,t3`. An
+  explicit `--with` list replaces the default selection.
+- On WSL, the checklist does not preselect Docker. Docker Desktop for Windows
+  provides the client, and setup skips the engine, group, and service steps.
+- T3 Code installs the latest release when its service is missing or broken.
+  After that, `t3 update` moves it to new releases.
 - `--skip-managed-tools` skips the managed tool catalog during setup.
 - The summary lists each installed CLI that is not signed in, with its login
   command.

@@ -15,6 +15,8 @@ Shell = Callable[[str], subprocess.CompletedProcess[str]]
 
 @pytest.fixture
 def linux(tmp_path: Path) -> Shell:
+    proc_version = tmp_path / "proc-version"
+    proc_version.write_text("Linux version 6.8.0-generic\n")
     env = {
         **os.environ,
         "HOME": str(tmp_path),
@@ -26,6 +28,9 @@ def linux(tmp_path: Path) -> Shell:
         "DOTFILES_WITH": "",
         "DOTFILES_SKIP_MANAGED_TOOLS": "false",
         "XDG_CONFIG_HOME": str(tmp_path / ".config"),
+        "HOST_PROC_VERSION": str(proc_version),
+        "HOST_SYSTEMD_DIR": str(tmp_path / "no-systemd"),
+        "HOST_LIMA_AGENT": str(tmp_path / "no-lima-guestagent"),
     }
 
     def execute(script: str) -> subprocess.CompletedProcess[str]:
@@ -359,7 +364,9 @@ printf '%s\\n' "${{NOTES[@]}}"
 
 
 @pytest.mark.parametrize("status", [0, 17])
-def test_live_output_uses_tty_and_preserves_logs(linux: Shell, status: int) -> None:
+def test_live_output_streams_to_tty_and_preserves_logs(
+    linux: Shell, status: int
+) -> None:
     script = f"""
 source "$DOTFILES_DIR/setup/linux.sh"
 INTERACTIVE=true
@@ -379,7 +386,8 @@ grep -q 'live output' "$LOG_FILE"
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Live probe..." in result.stdout
     assert "live output" in result.stdout
-    assert "\x1b[J" in result.stdout
+    assert "\x1b[" not in result.stdout.replace("\x1b[?", "")
+    assert result.stdout.count("live output") == 1
     assert f"completed with {status}" in result.stdout
 
 
@@ -614,7 +622,7 @@ def test_skipped_catalog_installs_only_selected_service_prerequisites(
     linux: Shell,
 ) -> None:
     result = linux("""
-HAS_SYSTEMD=true
+host_has_systemd() { return 0; }
 SKIP_MANAGED_TOOLS=true
 run() { printf '%s\n' "$*"; }
 run_task() { :; }
@@ -734,30 +742,39 @@ write_t3_settings "$(t3_opencode_shim)" "$HOME/.t3/userdata/settings.json"
     assert data["providers"]["codex"] == {"enabled": True}
 
 
-@pytest.mark.parametrize("installed", [False, True])
-def test_t3_installs_latest_and_repairs_settings(linux: Shell, installed: bool) -> None:
+@pytest.mark.parametrize(
+    ("service", "version", "installs", "notes"),
+    [
+        ("false", "", True, 1),
+        ("true", "", True, 0),
+        ("true", "0.1.0", False, 0),
+    ],
+)
+def test_t3_installs_latest_only_when_missing_or_broken(
+    linux: Shell, service: str, version: str, installs: bool, notes: int
+) -> None:
     result = linux(f"""
-HAS_SYSTEMD=true
+host_has_systemd() {{ return 0; }}
 run_task() {{ printf '%s\n' "$*"; }}
 write_t3_settings() {{ printf 'settings %s\n' "$1"; }}
 t3_settings_current() {{ return 1; }}
-t3_service_installed() {{ {"true" if installed else "false"}; }}
+t3_service_installed() {{ {service}; }}
+setup_step_version() {{ printf '%s' '{version}'; }}
 mise() {{ printf '/tools/node/bin/node\n'; }}
 phase_t3
 printf 'notes=%s\n' "${{#NOTES[@]}}"
 """)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "npx --yes t3@latest service install" in result.stdout
-    assert "service update" not in result.stdout
+    assert ("npx --yes t3@latest service install" in result.stdout) is installs
     assert "settings " in result.stdout
     assert "/shims/opencode" in result.stdout
-    assert f"notes={0 if installed else 1}" in result.stdout
+    assert f"notes={notes}" in result.stdout
 
 
 def test_caddy_skips_outside_lima(linux: Shell) -> None:
     result = linux("""
-IS_LIMA=false
-HAS_SYSTEMD=true
+host_is_lima() { return 1; }
+host_has_systemd() { return 0; }
 run_task() { printf 'unexpected task\n'; return 99; }
 phase_caddy
 """)
@@ -771,8 +788,8 @@ def test_caddy_prompts_for_missing_porkbun_keys(
 ) -> None:
     script = f"""
 source "$DOTFILES_DIR/setup/linux.sh"
-IS_LIMA=true
-HAS_SYSTEMD=true
+host_is_lima() {{ return 0; }}
+host_has_systemd() {{ return 0; }}
 INTERACTIVE={"true" if interactive else "false"}
 need_sudo() {{ :; }}
 run_task() {{ printf 'task %s\\n' "${{*:2}}"; }}
@@ -809,8 +826,8 @@ def test_caddy_keeps_existing_porkbun_keys(linux: Shell, tmp_path: Path) -> None
     env_file.parent.mkdir(parents=True)
     env_file.write_text("PORKBUN_API_KEY=old\nPORKBUN_API_SECRET_KEY=old\n")
     result = linux("""
-IS_LIMA=true
-HAS_SYSTEMD=true
+host_is_lima() { return 0; }
+host_has_systemd() { return 0; }
 INTERACTIVE=true
 need_sudo() { :; }
 run_task() { :; }
@@ -830,7 +847,7 @@ def test_menu_offers_caddy_only_on_lima(
 source "$DOTFILES_DIR/setup/linux.sh"
 PROFILE=full
 INTERACTIVE=true
-IS_LIMA={"true" if lima else "false"}
+host_is_lima() {{ {"return 0" if lima else "return 1"}; }}
 setup_step_installed() {{ return 1; }}
 gum() {{
   if [[ "$1" == choose ]]; then
@@ -847,7 +864,8 @@ configure_sections
     assert ("|caddy" in menu) == lima
 
 
-def test_caddy_is_a_valid_optional_step(linux: Shell) -> None:
+def test_caddy_is_a_valid_optional_step(linux: Shell, tmp_path: Path) -> None:
+    (tmp_path / "no-lima-guestagent").touch(mode=0o755)
     result = linux(
         'bash "$DOTFILES_DIR/bootstrap.sh" --dry-run --yes --with caddy,t3\n'
         "PROFILE=full\nOPTIONAL_STEPS=caddy\nvalidate_optional_steps\nconfigure_sections\n"
@@ -856,6 +874,12 @@ def test_caddy_is_a_valid_optional_step(linux: Shell) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Optional steps: caddy,t3" in result.stdout
     assert "Services|caddy" in result.stdout
+
+
+def test_caddy_step_is_rejected_outside_lima(linux: Shell) -> None:
+    result = linux("PROFILE=full\nOPTIONAL_STEPS=caddy\nvalidate_optional_steps")
+    assert result.returncode != 0
+    assert "not available on this host: caddy" in result.stderr
 
 
 def skills_hook() -> str:
@@ -924,3 +948,246 @@ def test_claude_skills_hook_shellcheck() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+WSL_CONFS = [
+    None,
+    "[boot]\nsystemd=true\n",
+    "[interop]\nenabled=true\n",
+    (
+        "# keep me\n[interop]\nappendWindowsPath = true\nenabled=true\n"
+        "[boot]\nsystemd=true\n"
+    ),
+    "[interop]\nappendWindowsPath=falsehood\n",
+    "[boot]\nappendWindowsPath=false\n",
+]
+
+
+@pytest.mark.parametrize(
+    ("version", "wsl"),
+    [
+        ("Linux version 5.15.167.4-microsoft-standard-WSL2", True),
+        ("Linux version 6.8.0-generic", False),
+    ],
+)
+def test_host_detects_wsl_from_the_kernel_version(
+    linux: Shell, tmp_path: Path, version: str, wsl: bool
+) -> None:
+    (tmp_path / "proc-version").write_text(version + "\n")
+    result = linux("host_is_wsl")
+    assert (result.returncode == 0) is wsl
+
+
+def test_host_detects_lima(linux: Shell, tmp_path: Path) -> None:
+    assert linux("host_is_lima").returncode != 0
+    agent = tmp_path / "no-lima-guestagent"
+    agent.touch(mode=0o755)
+    assert linux("host_is_lima").returncode == 0
+
+
+def test_host_detects_systemd(linux: Shell, tmp_path: Path) -> None:
+    assert linux("host_has_systemd").returncode != 0
+    (tmp_path / "no-systemd").mkdir()
+    assert linux("host_has_systemd").returncode == 0
+
+
+@pytest.mark.parametrize(
+    ("step", "requested", "wsl", "selected"),
+    [
+        ("docker", "", False, True),
+        ("docker", "", True, False),
+        ("tailscale", "", True, True),
+        ("docker", "docker", True, True),
+        ("docker", "t3", False, False),
+        ("t3", "t3", False, True),
+        ("tailscale", "t3", False, False),
+        ("mise_tools", "t3", True, True),
+    ],
+)
+def test_default_selection_follows_host_and_request(
+    linux: Shell, step: str, requested: str, wsl: bool, selected: bool
+) -> None:
+    host = "return 0" if wsl else "return 1"
+    result = linux(
+        f"host_is_wsl() {{ {host}; }}\nsetup_step_default_selected {step} '{requested}'"
+    )
+    assert (result.returncode == 0) is selected
+
+
+def test_menu_preselects_only_the_requested_steps(linux: Shell) -> None:
+    script = """
+source "$DOTFILES_DIR/setup/linux.sh"
+PROFILE=full
+INTERACTIVE=true
+OPTIONAL_STEPS=t3
+setup_step_installed() { return 1; }
+gum() {
+  if [[ "$1" == choose ]]; then
+    printf '%s\\n' "$@" > "$HOME/menu-args"
+  fi
+}
+configure_sections
+selected="$(grep -A 1 -- '--selected' "$HOME/menu-args")"
+[[ "$selected" == *'T3 Code'* ]]
+[[ "$selected" == *'Developer tools'* ]]
+for label in Docker Tailscale Pitchfork; do
+  [[ "$selected" != *"$label"* ]]
+done
+"""
+    command = shlex.quote("bash -Eeuo pipefail -c " + shlex.quote(script))
+    result = linux(f"script -q -e -c {command} /dev/null")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_menu_does_not_preselect_docker_on_wsl(linux: Shell) -> None:
+    script = """
+source "$DOTFILES_DIR/setup/linux.sh"
+PROFILE=full
+INTERACTIVE=true
+host_is_wsl() { return 0; }
+setup_step_installed() { return 1; }
+gum() {
+  if [[ "$1" == choose ]]; then
+    printf '%s\\n' "$@" > "$HOME/menu-args"
+  fi
+}
+configure_sections
+selected="$(grep -A 1 -- '--selected' "$HOME/menu-args")"
+grep -q '[|]docker$' "$HOME/menu-args"
+[[ "$selected" != *Docker* ]]
+for label in Tailscale Pitchfork 'T3 Code'; do
+  [[ "$selected" == *"$label"* ]]
+done
+"""
+    command = shlex.quote("bash -Eeuo pipefail -c " + shlex.quote(script))
+    result = linux(f"script -q -e -c {command} /dev/null")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_docker_desktop_link_counts_as_installed(linux: Shell, tmp_path: Path) -> None:
+    result = linux(f"""
+command() {{
+  if [[ "$1" == -v && "$2" == docker ]]; then return 1; fi
+  builtin command "$@"
+}}
+DOCKER_CLIENT_LINK={shlex.quote(str(tmp_path / "docker"))}
+if docker_installed; then exit 99; fi
+ln -s /nonexistent/docker "$DOCKER_CLIENT_LINK"
+docker_installed
+""")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    ("release", "expected"),
+    [
+        ("ID=ubuntu\nVERSION_CODENAME=noble\n", "noble"),
+        (
+            "ID=linuxmint\nID_LIKE=ubuntu\nVERSION_CODENAME=wilma\nUBUNTU_CODENAME=noble\n",
+            "noble",
+        ),
+    ],
+)
+def test_docker_repository_uses_the_ubuntu_codename(
+    linux: Shell, tmp_path: Path, release: str, expected: str
+) -> None:
+    os_release = tmp_path / "os-release"
+    os_release.write_text(release)
+    result = linux(f"HOST_OS_RELEASE={shlex.quote(str(os_release))}; ubuntu_codename")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout == expected
+
+
+def test_docker_repository_rejects_other_distributions(
+    linux: Shell, tmp_path: Path
+) -> None:
+    os_release = tmp_path / "os-release"
+    os_release.write_text("ID=fedora\nVERSION_CODENAME=\n")
+    result = linux(
+        f'HOST_OS_RELEASE={shlex.quote(str(os_release))}\ncodename="$(ubuntu_codename)"'
+    )
+    assert result.returncode != 0
+    assert "Ubuntu only" in result.stderr
+
+
+def git_config(path: Path, *args: str) -> list[str]:
+    result = subprocess.run(
+        ["git", "config", "-f", str(path), *args],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.split()
+
+
+@pytest.mark.parametrize("conf", WSL_CONFS)
+def test_wsl_interop_step_disables_windows_path_once(
+    linux: Shell, tmp_path: Path, conf: str | None
+) -> None:
+    path = tmp_path / "wsl.conf"
+    if conf is not None:
+        path.write_text(conf)
+    result = linux(f"""
+WSL_CONF={shlex.quote(str(path))}
+run_task() {{ shift; [[ $1 != --sudo ]] || shift; "$@"; }}
+if wsl_windows_path_disabled; then exit 99; fi
+phase_wsl_interop
+phase_wsl_interop
+wsl_windows_path_disabled
+wsl_automount_disabled
+""")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert git_config(path, "--get-all", "interop.appendWindowsPath") == ["false"]
+    assert git_config(path, "--get-all", "automount.enabled") == ["false"]
+    for line in (conf or "").splitlines():
+        if "interop" not in line and "appendWindowsPath" not in line:
+            assert line in path.read_text(), line
+
+
+@pytest.mark.parametrize(
+    "conf",
+    [
+        "[interop]\nappendWindowsPath=false\n",
+        "[interop]\nappendWindowsPath = false # keep\n",
+        "[Interop]\nappendWindowsPath = False\n",
+    ],
+)
+def test_wsl_windows_path_already_disabled(
+    linux: Shell, tmp_path: Path, conf: str
+) -> None:
+    path = tmp_path / "wsl.conf"
+    path.write_text(conf)
+    result = linux(f"WSL_CONF={shlex.quote(str(path))}; wsl_windows_path_disabled")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_wsl_interop_step_only_exists_on_wsl(linux: Shell) -> None:
+    result = linux("setup_step_available wsl_interop")
+    assert result.returncode != 0
+    result = linux("""
+OPTIONAL_STEPS=wsl_interop
+PROFILE=full
+validate_optional_steps
+""")
+    assert "not available on this host" in result.stderr
+    result = linux("""
+host_is_wsl() { return 0; }
+OPTIONAL_STEPS=wsl_interop
+PROFILE=full
+validate_optional_steps
+setup_step_default_selected wsl_interop && exit 99
+setup_step_default_selected wsl_interop wsl_interop
+""")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_docker_client_only_skips_engine_setup(linux: Shell) -> None:
+    result = linux("""
+docker_installed() { return 0; }
+docker_engine_installed() { return 1; }
+docker() { printf 'Docker version 29.8.2, build abc\\n'; }
+run_task() { printf 'RAN: %s\\n' "$1"; }
+phase_docker
+""")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "RAN:" not in result.stdout
+    assert "docker client only" in result.stdout

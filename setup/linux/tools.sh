@@ -28,8 +28,7 @@ managed_tools_status() {
     printf '0/%s installed; install' "$count"
     return
   fi
-  if ! tools="$(MISE_OFFLINE=true MISE_NO_ENV=true MISE_NO_HOOKS=true MISE_COLOR=false \
-    timeout 5 mise ls --installed --no-header 2> /dev/null)"; then
+  if ! tools="$(MISE_COLOR=false mise_probe mise ls --installed --no-header 2> /dev/null)"; then
     printf '?/%s installed; sync' "$count"
     return
   fi
@@ -68,8 +67,7 @@ phase_apt() {
     warn "apt-get update failed; retrying ($attempt/3)"
     sleep 2
   done
-  run 'Installing base packages' --sudo \
-    env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  apt_install 'Installing base packages' \
     software-properties-common xz-utils zsh curl ca-certificates libcap2-bin procps
   show_version Zsh 1 zsh --version
 }
@@ -77,7 +75,7 @@ phase_apt() {
 phase_git() {
   if ! git_at_least 2.41; then
     run 'Adding the Git repository' --sudo add-apt-repository -y ppa:git-core/ppa
-    run 'Installing Git from ppa:git-core' --sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y git
+    apt_install 'Installing Git from ppa:git-core' git
     git_at_least 2.41 || die 'git >= 2.41 required after ppa install'
   fi
   show_version Git 2 git --version
@@ -107,10 +105,9 @@ phase_mise() {
   show_version Mise 0 mise --version
 }
 
-# Status probes must not install tools or wait for input.
+# Sign-in probes must not wait for input.
 quiet_probe() {
-  MISE_AUTO_INSTALL=false MISE_OFFLINE=true MISE_NO_ENV=true MISE_NO_HOOKS=true \
-    timeout 10 "$@" < /dev/null > /dev/null 2>&1
+  mise_probe "$@" < /dev/null > /dev/null 2>&1
 }
 
 phase_sign_in_notice() {
@@ -132,7 +129,8 @@ phase_sign_in_notice() {
 
 phase_nix() {
   if ! command -v nix > /dev/null 2>&1; then
-    run_script 'Installing Nix' https://nixos.org/nix/install sh --no-daemon
+    # The managed zshrc already provides the Nix PATH.
+    run_script 'Installing Nix' https://nixos.org/nix/install sh --no-daemon --no-modify-profile
   fi
   if [[ -e "$HOME/.nix-profile/etc/profile.d/nix.sh" ]]; then
     # shellcheck source=/dev/null
@@ -140,13 +138,6 @@ phase_nix() {
   fi
   command -v nix > /dev/null 2>&1 || die 'nix not on PATH after install'
   show_version Nix 2 nix --version
-  # Nix adds a marked PATH block. The managed zshrc already provides this PATH.
-  local profile
-  for profile in .zshrc .bashrc .bash_profile .profile; do
-    if [[ -f "$HOME/$profile" ]]; then
-      sed -i '/# added by Nix installer[[:space:]]*$/d' "$HOME/$profile"
-    fi
-  done
 }
 
 phase_mise_tools() {

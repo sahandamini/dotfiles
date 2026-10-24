@@ -22,7 +22,7 @@ Obtain the dotfiles source, then run macOS or Linux machine setup.
 
 Options:
   --profile PROFILE  Linux setup: core or full (default: full)
-  --with STEPS       Linux optional steps: docker,tailscale,pitchfork,caddy,t3
+  --with STEPS       Linux optional steps: docker,tailscale,pitchfork,caddy,t3,wsl_interop
   --skip-managed-tools  Linux debug: skip the managed mise tool catalog
   --branch BRANCH    branch to clone into a new source directory
   --source DIR       use a specific chezmoi repository directory
@@ -73,13 +73,7 @@ core | full) ;;
 *) die "unknown profile: $PROFILE (expected core or full)" ;;
 esac
 
-IFS=, read -r -a optional_steps <<< "$OPTIONAL_STEPS"
-for step in "${optional_steps[@]}"; do
-  case "$step" in
-  docker | tailscale | pitchfork | caddy | t3) ;;
-  *) die "unknown optional step: $step (expected docker, tailscale, pitchfork, caddy, t3)" ;;
-  esac
-done
+# setup/linux.sh owns the optional step catalog and validates step names.
 [[ $PROFILE == full || -z $OPTIONAL_STEPS ]] || die '--with requires the full profile'
 
 os="$(uname -s)"

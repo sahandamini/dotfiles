@@ -53,6 +53,10 @@ Manage home-directory dotfiles with Chezmoi. The source repo lives at
 ### Version Control
 
 - Use Git for version control.
+- Use Worktrunk for temporary Git worktrees. Run `wt switch --create <branch>`
+  to create one. In a non-interactive shell, read the printed path and use it as
+  the working directory; `wt` cannot change the parent process directory. Run
+  `wt remove <branch>` to remove it.
 - Preserve uncommitted work before switching branches or worktrees.
 - Review the status and diff before committing.
 

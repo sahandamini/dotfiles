@@ -1,0 +1,12 @@
+# chezmoi:modify-template
+{{- $config := .chezmoi.stdin | fromToml -}}
+{{- /* Caddy terminates TLS and proxies to this loopback-only port. */ -}}
+{{- $config = $config
+    | setValueAtPath "settings.proxy.enable" true
+    | setValueAtPath "settings.proxy.host" "127.0.0.1"
+    | setValueAtPath "settings.proxy.port" 9443
+    | setValueAtPath "settings.proxy.sync_hosts" false
+    | setValueAtPath "settings.proxy.tld" .proxy.tld
+    | setValueAtPath "settings.supervisor.user" .chezmoi.username
+-}}
+{{- $config | toToml -}}

@@ -8,6 +8,7 @@ dotfiles
 {{ end }}
 {{ if ne $host "linux" }}
 .config/caddy-lab
+.config/pitchfork
 .config/mise/tasks/setup-caddy
 {{ end }}
 {{ if ne .chezmoi.os "darwin" }}

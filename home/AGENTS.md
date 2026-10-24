@@ -38,7 +38,8 @@ Manage home-directory dotfiles with Chezmoi. The source repo lives at
   (`worktree.app.lab…`) and direct `:9443` access do not work: the wildcard
   certificate covers one level, and the proxy binds loopback only. Register a
   worktree with
-  `pitchfork proxy add <slug> --daemon dev --dir <worktree-root>`.
+  `pitchfork-register <slug> --daemon dev --dir <worktree-root>`. The helper
+  sets the checkout namespace to the slug.
 - Port ownership on the Tailscale IP: Caddy owns port 443. Ad-hoc Tailscale
   Serve publishes set an explicit `--https` port in the 8443–8499 range, never
   the default 443.

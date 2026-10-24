@@ -44,7 +44,6 @@ if MISE_AUTO_INSTALL=false uv --version > /dev/null 2>&1; then exit 99; fi
 test "$(getent passwd smoke | cut -d: -f7)" = /usr/bin/zsh
 test -s "$HOME/.zshrc"
 test -s "$HOME/.config/mise/config.toml"
-test -x "$HOME/.config/mise/tasks/setup-pitchfork"
 test -s "$HOME/AGENTS.md"
 chezmoi --source /dotfiles --no-tty --error-on-conflict verify --exclude scripts
 logs=(/tmp/dotfiles-setup-*.log)

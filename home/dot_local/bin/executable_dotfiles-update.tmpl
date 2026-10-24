@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Update this machine from the dotfiles repo. README "Staying current" lists
+# each step.
+set -Eeuo pipefail
+
+repo={{ .chezmoi.workingTree | quote }}
+lockfile="$repo/nvim/lazy-lock.json"
+nvim_bin="$HOME/.local/share/mise/shims/nvim"
+t3_state="$HOME/.t3/runtime/service-state.json"
+
+step() {
+  printf '\n==> %s\n' "$1"
+}
+
+# A newer lockfile can need a newer mise.
+step 'Updating mise'
+mise self-update -y
+
+step 'Pulling and applying the dotfiles'
+chezmoi update
+
+step 'Installing and upgrading tools'
+mise install
+mise up
+
+if [[ -f $t3_state ]]; then
+  step 'Updating T3 Code'
+  t3 update --yes
+fi
+
+# Headless nvim exits 0 even when a plugin fails, so read its output.
+nvim_errors() {
+  "$nvim_bin" --headless '+Lazy! load all' +qa 2>&1 | grep -E 'Error|E[0-9]+:' || true
+}
+
+if [[ -x $nvim_bin && -f $lockfile ]]; then
+  step 'Updating nvim plugins'
+  previous="$(mktemp)"
+  trap 'rm -f -- "$previous"' EXIT
+  cp -- "$lockfile" "$previous"
+  "$nvim_bin" --headless '+Lazy! update' +qa
+  errors="$(nvim_errors)"
+  if [[ -n $errors ]]; then
+    cp -- "$previous" "$lockfile"
+    "$nvim_bin" --headless '+Lazy! restore' +qa
+    printf '%s\n' "$errors" >&2
+    printf 'nvim failed to start after the plugin update. Restored the previous plugins; nothing was committed.\n' >&2
+    exit 1
+  fi
+  if ! git -C "$repo" diff --quiet -- "$lockfile"; then
+    git -C "$repo" commit --quiet -m 'Update nvim plugins' -- "$lockfile"
+    if git -C "$repo" push --quiet; then
+      printf 'Committed and pushed the new nvim plugin versions.\n'
+    else
+      printf 'Committed the new nvim plugin versions. Push failed; run git push in %s.\n' "$repo" >&2
+    fi
+  fi
+fi
+
+step 'Done'

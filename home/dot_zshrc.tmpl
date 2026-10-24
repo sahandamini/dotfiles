@@ -44,11 +44,7 @@ alias gd='hunk diff --watch'
 dotfiles() {
   case "${1:-}" in
   '') cd {{ .chezmoi.workingTree | quote }} ;;
-  update)
-    # Update mise first: a newer lockfile can need a newer mise.
-    mise self-update -y && chezmoi update && mise install && mise up &&
-      nvim --headless '+Lazy! sync' +qa
-    ;;
+  update) dotfiles-update ;;
   *)
     print -u2 'usage: dotfiles [update]'
     return 2

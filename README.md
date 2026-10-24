@@ -74,6 +74,7 @@ programs read: `.ssh`, the opencode and WezTerm configs, and `AGENTS.md`.
 | `mise-global/config.toml`                 | global mise settings and language runtimes |
 | `mise-global/conf.d/*.toml`               | global tools, grouped by purpose         |
 | `home/dot_config/mise/create_mise.lock`   | first lockfile for a new machine         |
+| `nvim/lazy-lock.json`                     | nvim plugin versions for every machine   |
 
 Change the terminal theme (Ghostty, WezTerm, Herdr, nvim) in
 `home/.chezmoidata.toml`.
@@ -115,13 +116,37 @@ List everything with `mise tasks --all`.
 
 ## Staying current
 
-Run `dotfiles update` on each machine. It updates mise, pulls and applies the
-dotfiles (`chezmoi update`), installs new tools, upgrades the rest
-(`mise up`), and syncs the nvim plugins (`Lazy! sync`). `dotfiles` alone opens
-the repo.
+Run `dotfiles update` on each machine. `dotfiles` alone opens the repo. The
+update runs `~/.local/bin/dotfiles-update`, which does these steps in order:
 
-chezmoi writes `~/.config/mise/mise.lock` and `~/.config/nvim/lazy-lock.json`
-only when they are missing. After that, each machine owns its lockfiles.
+1. Update mise (`mise self-update`). A newer lockfile can need a newer mise.
+2. Pull the repo and apply it (`chezmoi update`). This step also pulls the
+   nvim plugin versions that other machines committed.
+3. Install new tools and upgrade the rest (`mise install`, `mise up`).
+4. Update T3 Code (`t3 update --yes`) on machines that run its service.
+5. Update the nvim plugins (`Lazy! update`). `~/.config/nvim/lazy-lock.json`
+   links to `nvim/lazy-lock.json` in the repo, so Lazy writes the new versions
+   into the repo.
+6. Check the plugins. Headless nvim loads every plugin. Any `Error` or
+   `E<number>:` line in its output fails the check.
+7. If the check passes and the plugin versions changed, commit only
+   `nvim/lazy-lock.json` as "Update nvim plugins" and push it.
+8. If the check fails, restore the previous lockfile, run `Lazy! restore`, and
+   commit nothing. The script prints the error and exits with status 1.
+
+The check catches plugins that fail at startup. It cannot catch a bug that
+shows only when you use a feature. To roll back the plugins after such a bug:
+
+```bash
+git -C ~/.local/share/chezmoi log --oneline -- nvim/lazy-lock.json
+git -C ~/.local/share/chezmoi checkout <good-commit> -- nvim/lazy-lock.json
+nvim --headless '+Lazy! restore' +qa
+```
+
+Then commit the restored lockfile, so other machines get the rollback.
+
+chezmoi writes `~/.config/mise/mise.lock` only when it is missing. After that,
+each machine owns its mise lockfile.
 
 ## Updating tools
 

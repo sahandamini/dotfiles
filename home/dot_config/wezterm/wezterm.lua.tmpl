@@ -16,5 +16,16 @@ return {
 	keys = {
 		-- Ctrl+Shift+V also pastes. Ctrl+V matches other Windows apps.
 		{ key = 'v', mods = 'CTRL', action = act.PasteFrom 'Clipboard' },
+		-- Match the Mac by key position: Ctrl does what Option does in Ghostty, and
+		-- Alt does what Cmd does. Each binding sends the bytes that Ghostty sends,
+		-- so zsh and Claude Code behave the same on both machines.
+		{ key = 'LeftArrow', mods = 'CTRL', action = act.SendString '\x1bb' },
+		{ key = 'RightArrow', mods = 'CTRL', action = act.SendString '\x1bf' },
+		{ key = 'LeftArrow', mods = 'ALT', action = act.SendString '\x01' },
+		{ key = 'RightArrow', mods = 'ALT', action = act.SendString '\x05' },
+		{ key = 'Backspace', mods = 'CTRL', action = act.SendString '\x1b\x7f' },
+		{ key = 'Backspace', mods = 'ALT', action = act.SendString '\x15' },
+		{ key = 'Enter', mods = 'CTRL', action = act.SendString '\x1b\r' },
+		{ key = 'Enter', mods = 'SHIFT', action = act.SendString '\x1b\r' },
 	},
 }

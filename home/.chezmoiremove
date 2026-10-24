@@ -4,3 +4,11 @@
 .config/openbao/policies/caddy-reader.hcl
 .config/openbao/README.md
 .local/bin/personal-secrets
+.config/opencode/agent
+.config/opencode/tui.json
+.config/opencode/instructions
+.config/television
+.config/mise/tasks/setup-pitchfork
+.config/mise/tasks/new-tanstack-app
+.agents/skills/tools
+.agents/skills/workflow

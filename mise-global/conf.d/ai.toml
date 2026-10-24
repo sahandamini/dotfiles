@@ -1,0 +1,7 @@
+[tools]
+# Its postinstall script installs the binary.
+"npm:@opencode/cli" = { version = "latest", allow_builds = ["@opencode/cli"] }
+claude = "latest"
+codex = "latest"
+pi = "latest"
+"npm:greptile" = "latest"

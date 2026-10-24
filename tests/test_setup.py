@@ -3,12 +3,11 @@ import os
 import re
 import shlex
 import subprocess
-import tomllib
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from conftest import ROOT
+from conftest import ROOT, mise_tools
 
 Shell = Callable[[str], subprocess.CompletedProcess[str]]
 
@@ -518,8 +517,7 @@ command() {
 managed_tools_status
 """)
     assert result.returncode == 0, result.stdout + result.stderr
-    catalog = tomllib.loads((ROOT / "home/dot_config/mise/config.toml").read_text())
-    assert result.stdout == f"0/{len(catalog['tools'])} installed; install"
+    assert result.stdout == f"0/{len(mise_tools())} installed; install"
 
 
 @pytest.mark.parametrize("skip", ["false", "true"])

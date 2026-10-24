@@ -71,7 +71,8 @@ programs read: `.ssh`, the opencode and WezTerm configs, and `AGENTS.md`.
 | `tests/`                                  | setup regression and smoke tests         |
 | `home/`                                   | chezmoi source state for `$HOME`         |
 | `home/.chezmoidata.toml`                  | shared data: app domain, Lima VM, themes |
-| `home/dot_config/mise/config.toml`        | machine-wide toolchains and global tasks |
+| `mise-global/config.toml`                 | global mise settings and language runtimes |
+| `mise-global/conf.d/*.toml`               | global tools, grouped by purpose         |
 | `home/dot_config/mise/create_mise.lock`   | first lockfile for a new machine         |
 
 Change the terminal theme (Ghostty, WezTerm, Herdr, nvim) in
@@ -123,8 +124,11 @@ GITHUB_TOKEN=$(gh auth token) mise lock --global --platform linux-arm64,linux-x6
 cp ~/.config/mise/mise.lock "$(chezmoi source-path ~/.config/mise/mise.lock)"
 ```
 
-Bump pinned versions (`mise outdated --bump` lists them) in
-`home/dot_config/mise/config.toml`, not with `mise use -g` on a machine.
+`~/.config/mise/config.toml` and `~/.config/mise/conf.d` link to
+`mise-global/` in the repo. `mise use -g` and manual edits change the tracked
+files, so commit them. `mise outdated --bump` lists pinned versions to bump.
+The `mise-global/` directory sits outside the mise search paths, so mise does
+not load it as a project config.
 
 ## Lima VM
 

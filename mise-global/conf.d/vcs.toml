@@ -1,0 +1,7 @@
+[tools]
+"aqua:max-sixty/worktrunk" = "latest"
+"difftastic" = "latest"
+"npm:hunkdiff" = "latest"
+"github-cli" = "latest"
+"nix:gh-dash" = "latest"
+"lazygit" = "latest"

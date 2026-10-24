@@ -1,3 +1,4 @@
+{{- $host := includeTemplate "host-kind" (dict "os" .chezmoi.os "osrelease" (get .chezmoi.kernel "osrelease" | default "")) -}}
 # ── Environment ───────────────────────────────────────────────
 export XDG_CONFIG_HOME="$HOME/.config"
 export XDG_DATA_HOME="$HOME/.local/share"
@@ -42,7 +43,7 @@ dotfiles() {
   '') cd {{ .chezmoi.workingTree | quote }} ;;
   update)
     # Update mise first: a newer lockfile can need a newer mise.
-    mise self-update -y && chezmoi update --init && mise install && mise up &&
+    mise self-update -y && chezmoi update && mise install && mise up &&
       nvim --headless '+Lazy! sync' +qa
     ;;
   *)
@@ -112,7 +113,7 @@ export PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin/"
 # lima and limactl commands without an instance name use this VM.
 export LIMA_INSTANCE={{ .vm.name | quote }}
 {{ end }}
-{{ if .isLima -}}
+{{ if eq $host "linux" -}}
 # ── Platform: Lima Guest ───────────────────────────────────────
 export OLLAMA_HOST="http://host.lima.internal:11434"
 {{ end }}
@@ -152,7 +153,7 @@ KEYTIMEOUT=40
 echo -ne '\e[5 q'
 preexec() { echo -ne '\e[5 q'; }
 
-{{ if .isLima -}}
+{{ if eq $host "linux" -}}
 # Lima BEGIN
 # Make sure iptables and mount.fuse3 are available
 PATH="$PATH:/usr/sbin:/sbin"

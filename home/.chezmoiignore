@@ -1,3 +1,4 @@
+{{- $host := includeTemplate "host-kind" (dict "os" .chezmoi.os "osrelease" (get .chezmoi.kernel "osrelease" | default "")) -}}
 {{/* ~/dotfiles links to the repo; a real directory there is a checkout from
      before the move to ~/.local/share/chezmoi, so leave it alone. */ -}}
 {{ $dotfiles := joinPath .chezmoi.homeDir "dotfiles" -}}
@@ -5,7 +6,7 @@
 {{ if or (eq .chezmoi.workingTree $dotfiles) (and $existing (ne $existing.type "symlink")) }}
 dotfiles
 {{ end }}
-{{ if not .isLima }}
+{{ if ne $host "linux" }}
 .config/caddy-lab
 .config/mise/tasks/setup-caddy
 {{ end }}

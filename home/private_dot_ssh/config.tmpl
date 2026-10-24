@@ -1,3 +1,4 @@
+{{- $host := includeTemplate "host-kind" (dict "os" .chezmoi.os "osrelease" (get .chezmoi.kernel "osrelease" | default "")) -}}
 Include ~/.ssh/devboxes.d/*.conf
 # Forward the real terminal identity so remote apps like herdr can pick the
 # right notification escape; servers opt in with AcceptEnv TERM_PROGRAM.
@@ -14,7 +15,7 @@ Host {{ .vm.name }} lima
   IdentitiesOnly yes
   HostKeyAlias lima-{{ .vm.name }}
   StrictHostKeyChecking accept-new
-{{ else if not .isLima -}}
+{{ else if ne $host "linux" -}}
 # The Lima VM over Tailscale.
 Host {{ .vm.name }} lima {{ .vm.hostname }} {{ .vm.ip }}
   HostName {{ .vm.ip }}

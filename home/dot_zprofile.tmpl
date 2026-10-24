@@ -1,3 +1,4 @@
+{{- $host := includeTemplate "host-kind" (dict "os" .chezmoi.os "osrelease" (get .chezmoi.kernel "osrelease" | default "")) -}}
 # Source Nix profile first so nix-installed tools are available. Linux uses a
 # single-user install; macOS only supports the multi-user daemon install.
 if [ -e $HOME/.nix-profile/etc/profile.d/nix.sh ]; then
@@ -17,7 +18,7 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME/bin:$PATH" ;;
 esac
 
-{{ if .isLima -}}
+{{ if eq $host "linux" -}}
 # SSOT for this VM's tailnet address; dev servers bind it so host-side
 # devices can reach them. Projects fall back to `tailscale ip -4`.
 export TAILSCALE_IP="{{ .vm.ip }}"

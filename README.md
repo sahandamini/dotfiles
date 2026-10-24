@@ -98,7 +98,7 @@ List everything with `mise tasks --all`.
 ## Staying current
 
 Run `dotfiles update` on each machine. It updates mise, pulls and applies the
-dotfiles (`chezmoi update --init`), installs new tools, upgrades the rest
+dotfiles (`chezmoi update`), installs new tools, upgrades the rest
 (`mise up`), and syncs the nvim plugins (`Lazy! sync`). `dotfiles` alone opens
 the repo.
 

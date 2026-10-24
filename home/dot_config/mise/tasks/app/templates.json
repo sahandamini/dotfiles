@@ -1,0 +1,23 @@
+[
+  {
+    "name": "tanstack",
+    "description": "TanStack Start app with Better Auth, Drizzle, Sentry, and PostHog",
+    "source": "https://github.com/sahandamini/tanstack-template",
+    "name_var": "app_name",
+    "data": { "template": "tanstack" },
+    "checks": ["check", "test-db", "test-visual"]
+  },
+  {
+    "name": "astro",
+    "description": "Astro site on Cloudflare Workers with React islands and shadcn",
+    "source": "https://github.com/sahandamini/tanstack-template",
+    "name_var": "app_name",
+    "data": { "template": "astro" },
+    "checks": ["check"]
+  },
+  {
+    "name": "empty",
+    "description": "Empty Git repo with a README",
+    "checks": []
+  }
+]

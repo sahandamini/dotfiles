@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Scaffold a new TanStack Start app from the template fork"
-#MISE dir="{{cwd}}"
-#USAGE arg "<target>" help="Destination directory for the new app"
-copier copy --trust https://github.com/sahandamini/tanstack-template "$usage_target"

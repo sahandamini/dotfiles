@@ -92,10 +92,22 @@ mise run debug:linux              # local setup in a fresh Ubuntu container
 Global (works from any directory):
 
 ```bash
-mise run new-tanstack-app <dir>   # scaffold a new TanStack Start app
+mise run app:new                  # create an app from a template
 ```
 
-The app template lives in its own fork:
+`app:new` asks for a template (`tanstack`, `astro`, or `empty`), an app name,
+and whether to create a public GitHub repo. It checks the name and the repo
+before it changes anything. Then it:
+
+1. Scaffolds `~/apps/<name>` with `copier` and commits it on `main`.
+2. Creates the GitHub repo and pushes `main`, when you chose GitHub.
+3. Allows squash merges only and deletes branches after merge.
+4. Adds a `main` ruleset: changes land through PRs with linear history and
+   resolved threads, force-push and deletion are blocked, and the template's CI
+   checks must pass. Repo admins can bypass it.
+
+GitHub Free has no rulesets on private repos, so `app:new` creates public repos
+only. The templates live in their own fork:
 [sahandamini/tanstack-template](https://github.com/sahandamini/tanstack-template).
 Its README describes the upstream sync.
 

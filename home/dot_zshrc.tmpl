@@ -20,9 +20,12 @@ export MISE_TRUSTED_CONFIG_PATHS="$HOME/.herdr/worktrees/:$HOME/.herdr/workspace
 # ── Path ──────────────────────────────────────────────────────
 export PATH="$PATH:/usr/sbin:/sbin"
 export PATH="$PATH:$HOME/.local/bin"
-{{ if eq .chezmoi.os "linux" -}}
-export PATH="$PATH:/opt/nvim-linux-x86_64/bin"
-{{ end -}}
+
+# ── History ───────────────────────────────────────────────────
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=100000
+SAVEHIST=100000
+setopt EXTENDED_HISTORY INC_APPEND_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_REDUCE_BLANKS
 
 # ── Initialization ────────────────────────────────────────────
 # Nix is loaded in .zprofile.

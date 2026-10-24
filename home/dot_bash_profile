@@ -1,15 +1,3 @@
-#!/bin/sh
-# Preserve external appends (nix installer, vite-plus, etc.); write our
-# profile once. modify_ targets are never conflict-prompted, unlike
-# dot_ targets which break apply when anything mutates the file.
-contents=$(cat)
-if [ -n "$contents" ]; then
-  printf '%s\n' "$contents"
-fi
-case "$contents" in
-  *"bash login shells (WSL default"*) ;;
-  *)
-    cat <<'BP_EOF'
 # bash login shells (WSL default, servers). zsh uses .zprofile.
 # Our setup runs first; the shared ~/.profile (Ubuntu defaults, the nix
 # installer line, vite-plus) is chained in last. Everything here is
@@ -25,9 +13,12 @@ case ":$PATH:" in
   *) export PATH="$HOME/.local/share/mise/shims:$PATH" ;;
 esac
 
+# Vite+ appends this line to each shell profile that does not name its env
+# file. Naming it here stops that edit.
+if [ -f "$HOME/.vite-plus/env" ]; then
+  . "$HOME/.vite-plus/env"
+fi
+
 if [ -f "$HOME/.profile" ]; then
   . "$HOME/.profile"
 fi
-BP_EOF
-  ;;
-esac

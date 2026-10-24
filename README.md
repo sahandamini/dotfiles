@@ -189,11 +189,13 @@ domain control with a Porkbun DNS record, so it needs a Porkbun API key.
 
 1. In Porkbun, add an A record `*.lab` that points to the VM's Tailscale IP.
 2. In Porkbun, create an API key. Turn on API access for `sahandamini.dev` only.
-3. Run the bootstrap on the VM and select Caddy. Setup asks for the key, writes
-   it to `~/.config/caddy-lab/env` (mode 600), and starts Caddy.
+3. Run the bootstrap on the VM and select Caddy. Paste the age key from
+   Bitwarden when setup asks. Chezmoi then decrypts the Porkbun keys to
+   `~/.config/caddy-lab/env` (mode 600), and setup starts Caddy. Without the age
+   key, setup asks for the Porkbun keys instead.
 
-To change the key later, delete `~/.config/caddy-lab/env` and run the bootstrap
-again. Read the logs with `journalctl -u caddy-lab -f`.
+[docs/secrets.md](docs/secrets.md) describes the age key and how to change a
+secret. Read the logs with `journalctl -u caddy-lab -f`.
 
 ## Updating from upstream
 

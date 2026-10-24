@@ -36,3 +36,7 @@ dotfiles
 !.config
 !.config/{opencode,wezterm}{,/**}
 {{ end }}
+{{/* Without age, chezmoi keeps the .age suffix in target names. */ -}}
+{{ if ne (get .chezmoi.config "encryption" | default "") "age" }}
+.config/caddy-lab/env{,.age}
+{{ end }}

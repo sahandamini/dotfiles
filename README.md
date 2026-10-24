@@ -49,14 +49,13 @@ runs `mise install`.
 
 ### Windows
 
-Windows development runs in WSL. Run the Linux bootstrap inside WSL. Its
-dotfiles apply also writes `.wslconfig` and the WezTerm config on the Windows
-side.
+Windows development runs in WSL. Run the Linux bootstrap inside WSL. WSL keeps
+its default settings: NAT networking with DNS tunneling. The dotfiles manage no
+`.wslconfig`, `/etc/wsl.conf`, or `/etc/hosts`.
 
-`bootstrap.ps1` is optional. It installs Git, mise, chezmoi, and opencode on
-Windows, then applies only the files that Windows programs read: `.ssh`, the
-opencode and WezTerm configs, and `AGENTS.md`. After it runs, native Windows
-chezmoi owns the WezTerm config, and WSL stops writing it.
+Run `bootstrap.ps1` on Windows for the WezTerm config. It installs Git, mise,
+chezmoi, and opencode on Windows, then applies only the files that Windows
+programs read: `.ssh`, the opencode and WezTerm configs, and `AGENTS.md`.
 
 ## Layout
 

@@ -1,70 +1,112 @@
 # aamini coding
 
-This document outlines global rules for Sahand's agents to follow.
+Global rules for Sahand's agents.
 
-## Remote Development
+## Environment
 
-My main coding sessions are done on my lima Ubuntu VM running on my macbook pro.
-I ssh into the laptop using tailscale and have the laptop set to stay awake
-using the amphetamine app.
+Main coding sessions run on a lima Ubuntu VM on a MacBook Pro. Sahand connects
+over Tailscale SSH, and the Amphetamine app keeps the laptop awake. Clients and
+the server share no filesystem.
 
-### Dotfiles
-
-Manage home-directory dotfiles with Chezmoi. The source repo lives at
-`~/.local/share/chezmoi`, and `~/dotfiles` links to it. Edit source files under
-`~/dotfiles/home`, then apply only the changed targets with `chezmoi apply`.
-
-### Notes
-
-- Browser automation prefers Chrome on the client over CDP. Detect the online
-  client with `tailscale status`. Ask the user to start Chrome with remote
-  debugging when no client browser runs. Use the server headless browser only
-  when no client is reachable. Use the full Playwright Chromium with
-  `--headless=new`; never use `chrome-headless-shell`. Set
-  `CHROME_DEVTOOLS_AXI_BROWSER_URL` on every axi call.
-- URLs that a client must load stay reachable from the client network (Tailscale
-  or published DNS), never server-side localhost. No shared filesystem exists
-  between server and clients. When the user must view a file, start a loopback
-  server and publish it with
-  `tailscale serve --bg --https=8443 --set-path=/<unique-path> <port>`. Read the
-  node DNS name with `tailscale status --json`, then hand over the full HTTPS
-  URL. Inspect existing Serve mappings first.
-- Do not replace or reset mappings you did not start.
-- Caddy terminates TLS on the Tailscale IP at port 443 and proxies to the
-  Pitchfork proxy on loopback port 9443. App URLs are
-  `https://<name>.lab.sahandamini.dev`, with a public Let's Encrypt certificate.
-  Hostnames are single-level: slugs flatten directory dots to hyphens
-  (`app.worktree` serves as `app-worktree`). Nested hostnames
-  (`worktree.app.lab…`) and direct `:9443` access do not work: the wildcard
-  certificate covers one level, and the proxy binds loopback only. Register a
-  worktree with
-  `pitchfork-register <slug> --daemon dev --dir <worktree-root>`. The helper
-  sets the checkout namespace to the slug.
-- Port ownership on the Tailscale IP: Caddy owns port 443. Ad-hoc Tailscale
-  Serve publishes set an explicit `--https` port in the 8443–8499 range, never
-  the default 443.
-- For T3 Code dev servers, use `vp run dev --share`; do not configure Tailscale
-  Serve by hand.
+- Manage home-directory dotfiles with Chezmoi. Edit sources under
+  `~/.local/share/chezmoi/home` (`~/dotfiles` links to the repo). Then run
+  `chezmoi apply` for the changed targets only.
+- Make each URL that a client must load reachable from the client network, not
+  server-side localhost. Follow the `tailnet-publish` skill to share a URL or
+  file.
+- Caddy owns port 443 on the Tailscale IP. Never publish a Tailscale Serve
+  mapping on 443.
+- For browser work, follow the `browser-use` skill.
 - Herdr panes run non-login shells on Linux. Keep `shell_mode = "login"` in
   `~/.config/herdr/config.toml`, so `.zprofile` PATH setup runs.
 
-## Rules
+## Version Control
 
-### Version Control
+- Use Git. Preserve uncommitted work before you switch branches or worktrees.
+- Use Worktrunk for task worktrees. Run `wt switch --create <branch>` to create
+  one. In a non-interactive shell, read the printed path and use it as the
+  working directory; `wt` cannot change the parent process directory.
+- Review the status and diff before each commit.
+- Keep each PR commit clean. To change existing work, amend the commit that owns
+  the change: run `git commit --fixup=<sha>`, then
+  `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <base>`. Do not leave fixup
+  commits in a PR.
+- Rebase, reorder, split, squash, and force-push PR branches without
+  permission. Push rewrites with `git push --force-with-lease`.
+- Trunk history is immutable: `main`, tags, and other people's branches. Never
+  rewrite or force-push it without explicit permission for that exact
+  operation. Add a new commit instead.
 
-- Use Git for version control.
-- Use Worktrunk for temporary Git worktrees. Run `wt switch --create <branch>`
-  to create one. In a non-interactive shell, read the printed path and use it as
-  the working directory; `wt` cannot change the parent process directory. Run
-  `wt remove <branch>` to remove it.
-- Preserve uncommitted work before switching branches or worktrees.
-- Review the status and diff before committing.
+## Shipping PRs
 
-### Style
+When a task is complete, ship it without a prompt. Push its branch and open or
+update its PR.
+
+### Ship Lanes
+
+Each task uses one lane:
+
+- **full-send**: Merge the PR without a prompt when it is merge-ready.
+- **full-review**: After the first push, ask the user for feedback. Ask before
+  merge.
+
+Use full-review by default. Use full-send only when the user names it for the
+task (for example with "full send" in the prompt). Never select full-send on
+your own. Move back to full-review and tell the user if the change grows to
+touch auth, secrets, user data, migrations, or production, or if it cannot be
+easily reverted.
+
+### One PR for Each Task
+
+Open one PR for each task. A large PR is acceptable. Each PR costs one review,
+so do not split a task into more PRs. Split the work into one commit for each
+concern. The reviewer reads one commit at a time.
+
+Stack PRs in two cases only. Keep dependencies below consumers.
+
+- Dependent work must continue while the previous PR waits for review or CI.
+- Cleanups accumulate in a high-churn PR. Move them to one PR at the bottom of
+  the stack and merge it first.
+
+For a stacked PR, branch from the branch below and open the PR with
+`gh pr create --base <branch-below>`.
+
+Own each PR until it is merged or merge-ready. Fix failures without a prompt.
+Wait on checks with `gh pr checks <pr> --watch`, not chained `sleep` calls.
+
+### Code Review
+
+If the changes are large and need a second pass, run 1 to 3 adversarial reviews
+with a subagent. Never run more than 3 reviews; findings degrade into noise
+after 3 rounds. CodeRabbit does not count toward this limit.
+
+Request a CodeRabbit review with `@coderabbitai review`. In full-send, request
+it after green CI. In full-review, request it after the user gives feedback. Do
+not use CodeRabbit autofix. It adds commits outside the commit-per-concern
+structure. Fix real findings by hand in the commit that owns them. Reply in each
+thread with the fix or the false-positive reason, then resolve it. After each
+round of fixes, request another review. Continue until CodeRabbit approves the
+PR.
+
+### Clean Up
+
+A PR is merge-ready when CodeRabbit approved it, all checks and deploys are
+green, and all threads are resolved. After a stack update, recheck each affected
+PR. Merge bottom-up with `gh pr merge <pr> --squash --delete-branch`. Before you
+merge the next PR, rebase its branch onto `main`, force-push it, and change its
+base with `gh pr edit <pr> --base main`.
+
+After the merge, remove the task worktree as the last action of the task:
+
+1. Run `wt remove <branch>` from outside the worktree. Never remove the main
+   checkout.
+2. Use the t3 MCP to settle the thread: archive.
+
+## Style
 
 - When making technical decisions, do not give much weight to development cost.
   Instead, prefer quality, simplicity, robustness, scalability, and long-term
-  maintanability.
+  maintainability.
 - Never write comments that restate what the code already says — if a comment
   explains _what_ the code does, delete it and rename or restructure the code
   instead. Comments must add information the code cannot express. Allowed

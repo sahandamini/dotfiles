@@ -259,6 +259,17 @@ t3_opencode_shim() {
   printf '%s/shims/opencode' "${MISE_DATA_DIR:-$HOME/.local/share/mise}"
 }
 
+# T3 0.1 keeps provider settings in providerInstances. It migrated the old
+# providers key itself, so drop a leftover old entry instead of reviving it.
+# jq's // treats false as missing, so read enabled with an explicit null check.
+# shellcheck disable=SC2016
+T3_OPENCODE_SETTINGS='.providers.opencode as $old
+  | .providerInstances.opencode |= ((. // {driver: "opencode",
+      enabled: (if $old.enabled == null then true else $old.enabled end)})
+    | .config.binaryPath = $b)
+  | del(.providers.opencode)
+  | if .providers == {} then del(.providers) else . end'
+
 write_t3_settings() {
   # A versioned install path breaks when mise prunes that version after an
   # upgrade. The shim always runs the current version.
@@ -269,16 +280,18 @@ write_t3_settings() {
     settings_tmp="$(mktemp "$2.XXXXXX")"
     trap "rm -f -- \"\$settings_tmp\"" EXIT
     if [[ -f "$2" ]]; then
-      jq --arg b "$1" ".providers.opencode.binaryPath = \$b" "$2" > "$settings_tmp"
+      jq --arg b "$1" "$3" "$2" > "$settings_tmp"
     else
-      jq -n --arg b "$1" "{providers: {opencode: {enabled: true, binaryPath: \$b}}}" > "$settings_tmp"
+      jq -n --arg b "$1" "{} | $3" > "$settings_tmp"
     fi
     mv -- "$settings_tmp" "$2"
-  ' _ "$1" "$2"
+  ' _ "$1" "$2" "$T3_OPENCODE_SETTINGS"
 }
 
 t3_settings_current() {
-  [[ -f "$2" ]] && jq -e --arg b "$1" '.providers.opencode.binaryPath == $b' "$2" > /dev/null 2>&1
+  [[ -f "$2" ]] && jq -e --arg b "$1" \
+    '.providerInstances.opencode.config.binaryPath == $b and (.providers.opencode == null)' \
+    "$2" > /dev/null 2>&1
 }
 
 phase_t3() {

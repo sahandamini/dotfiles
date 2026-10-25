@@ -709,7 +709,13 @@ t3_settings_current "$b" "$HOME/.t3/userdata/settings.json"
     assert result.returncode == 0, result.stdout + result.stderr
     data = json.loads(settings.read_text())
     assert data == {
-        "providers": {"opencode": {"enabled": True, "binaryPath": str(shim)}}
+        "providerInstances": {
+            "opencode": {
+                "driver": "opencode",
+                "enabled": True,
+                "config": {"binaryPath": str(shim)},
+            }
+        }
     }
 
 
@@ -722,8 +728,12 @@ def test_t3_settings_repair_keeps_other_settings(linux: Shell, tmp_path: Path) -
         json.dumps(
             {
                 "theme": "dark",
-                "providers": {
-                    "opencode": {"enabled": False, "binaryPath": str(stale)},
+                "providerInstances": {
+                    "opencode": {
+                        "driver": "opencode",
+                        "enabled": False,
+                        "config": {"binaryPath": str(stale), "extra": 1},
+                    },
                     "codex": {"enabled": True},
                 },
             }
@@ -735,12 +745,35 @@ write_t3_settings "$(t3_opencode_shim)" "$HOME/.t3/userdata/settings.json"
 """)
     assert result.returncode == 0, result.stdout + result.stderr
     data = json.loads(settings.read_text())
-    assert data["providers"]["opencode"] == {
+    assert data["providerInstances"]["opencode"] == {
+        "driver": "opencode",
         "enabled": False,
-        "binaryPath": str(tmp_path / ".local/share/mise/shims/opencode"),
+        "config": {
+            "binaryPath": str(tmp_path / ".local/share/mise/shims/opencode"),
+            "extra": 1,
+        },
     }
     assert data["theme"] == "dark"
-    assert data["providers"]["codex"] == {"enabled": True}
+    assert data["providerInstances"]["codex"] == {"enabled": True}
+
+
+@NEEDS_JQ
+def test_t3_settings_drop_the_old_providers_key(linux: Shell, tmp_path: Path) -> None:
+    settings = tmp_path / T3_SETTINGS
+    settings.parent.mkdir(parents=True)
+    old = {"opencode": {"enabled": False, "binaryPath": "/old/opencode"}}
+    settings.write_text(json.dumps({"providers": old}))
+    result = linux("""
+run_task() { shift; "$@"; }
+b="$(t3_opencode_shim)"
+t3_settings_current "$b" "$HOME/.t3/userdata/settings.json" && exit 99
+write_t3_settings "$b" "$HOME/.t3/userdata/settings.json"
+t3_settings_current "$b" "$HOME/.t3/userdata/settings.json"
+""")
+    assert result.returncode == 0, result.stdout + result.stderr
+    data = json.loads(settings.read_text())
+    assert "providers" not in data
+    assert data["providerInstances"]["opencode"]["enabled"] is False
 
 
 @pytest.mark.parametrize(

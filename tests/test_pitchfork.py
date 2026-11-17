@@ -1,6 +1,7 @@
 import json
 import os
 import pwd
+import re
 import shutil
 import subprocess
 import sys
@@ -8,26 +9,54 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from conftest import ROOT
+from conftest import ROOT, mise_tools
 from test_setup import Shell
 from test_setup import linux as linux
+
+# The fake applies `proxy add` and `proxy remove` the way pitchfork 2.29 does:
+# `proxy add` omits a daemon that equals the slug and keeps an existing namespace
+# table, and `proxy remove` keeps all namespace tables.
+FAKE_PITCHFORK = """
+import json, os, sys
+from pathlib import Path
+
+import tomlkit
+
+args = sys.argv[1:]
+with open(os.environ["CALLS"], "a") as file:
+    file.write(json.dumps(args) + "\\n")
+path = Path.home() / ".config/pitchfork/config.toml"
+config = tomlkit.parse(path.read_text()) if path.exists() else tomlkit.document()
+if args[:2] == ["proxy", "add"]:
+    options = dict(zip(args[3::2], args[4::2], strict=True))
+    namespace = options["--namespace"]
+    slug = {"namespace": namespace}
+    if options["--daemon"] != args[2]:
+        slug["daemon"] = options["--daemon"]
+    config.setdefault("slugs", tomlkit.table())[args[2]] = slug
+    namespaces = config.setdefault("namespaces", tomlkit.table())
+    namespaces.setdefault(namespace, {"dir": options["--dir"]})
+elif args[:2] == ["proxy", "remove"]:
+    config.get("slugs", {}).pop(args[2], None)
+    if "slugs" in config and not config["slugs"]:
+        del config["slugs"]
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(tomlkit.dumps(config))
+"""
 
 
 @pytest.fixture
 def pitchfork_env(tmp_path: Path) -> dict[str, str]:
     binary = tmp_path / "bin/pitchfork"
     binary.parent.mkdir()
-    binary.write_text(
-        f"#!{sys.executable}\n"
-        "import json, os, sys\n"
-        "with open(os.environ['CALLS'], 'a') as file:\n"
-        "    file.write(json.dumps(sys.argv[1:]) + '\\n')\n"
-    )
+    binary.write_text(f"#!{sys.executable}\n{FAKE_PITCHFORK}")
     binary.chmod(0o755)
     return {
-        **os.environ,
+        **{k: v for k, v in os.environ.items() if not k.startswith("PITCHFORK_")},
         "PATH": f"{binary.parent}:{os.environ['PATH']}",
-        "XDG_CONFIG_HOME": str(tmp_path / "config"),
+        # The tests use tmp_path as a checkout, so HOME must be another folder.
+        "HOME": str(tmp_path / "home"),
+        "XDG_STATE_HOME": str(tmp_path / "xdg-state"),
         "PITCHFORK_STATE_DIR": str(tmp_path / "state"),
         "CALLS": str(tmp_path / "calls.jsonl"),
     }
@@ -45,6 +74,10 @@ def run_script(
     )
 
 
+def register(env: dict[str, str], *args: str) -> subprocess.CompletedProcess:
+    return run_script("pitchfork-register", env, *args)
+
+
 def calls(env: dict[str, str]) -> list[list[str]]:
     path = Path(env["CALLS"])
     return (
@@ -54,61 +87,436 @@ def calls(env: dict[str, str]) -> list[list[str]]:
     )
 
 
+def config_path(env: dict[str, str]) -> Path:
+    return Path(env["HOME"]) / ".config/pitchfork/config.toml"
+
+
+def read_config(env: dict[str, str]) -> dict:
+    path = config_path(env)
+    return tomllib.loads(path.read_text()) if path.exists() else {}
+
+
+def seed(env: dict[str, str], config: str) -> None:
+    path = config_path(env)
+    path.parent.mkdir(parents=True)
+    path.write_text(config)
+
+
+def local_namespace(root: Path) -> str | None:
+    return tomllib.loads((root / "pitchfork.local.toml").read_text()).get("namespace")
+
+
+def add_call(slug: str, root: Path, daemon: str = "dev") -> list[str]:
+    return [
+        *("proxy", "add", slug, "--daemon", daemon, "--dir", str(root)),
+        *("--namespace", slug),
+    ]
+
+
+@pytest.fixture
+def checkout(tmp_path: Path) -> Path:
+    root = tmp_path / "checkout"
+    root.mkdir()
+    return root
+
+
 def test_register_preserves_overrides_and_sets_checkout_specific_namespace(
     tmp_path: Path, pitchfork_env: dict[str, str]
 ) -> None:
     root = tmp_path / "animations"
     root.mkdir()
     local = root / "pitchfork.local.toml"
-    local.write_text("[daemons.dev]\nport = 3005\n")
-    for _ in range(2):
-        result = run_script(
-            "pitchfork-register",
-            pitchfork_env,
-            "portfolio-animations",
-            "--dir",
-            str(root),
-        )
-        assert result.returncode == 0, result.stderr
+    local.write_text('namespace = "portfolio"\n[daemons.dev]\nport = 3005\n')
+    result = register(pitchfork_env, "portfolio-animations", "--dir", str(root))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "https://portfolio-animations.localhost\n"
     assert tomllib.loads(local.read_text()) == {
         "namespace": "portfolio-animations",
         "daemons": {"dev": {"port": 3005}},
     }
-    assert len(calls(pitchfork_env)) == 2
+    assert calls(pitchfork_env) == [add_call("portfolio-animations", root)]
+    assert read_config(pitchfork_env) == {
+        "slugs": {
+            "portfolio-animations": {
+                "namespace": "portfolio-animations",
+                "daemon": "dev",
+            }
+        },
+        "namespaces": {"portfolio-animations": {"dir": str(root)}},
+    }
+    assert (tmp_path / "xdg-state/pitchfork-register.lock").exists()
 
 
-def test_register_rejects_dotted_slug_without_changes(
-    tmp_path: Path, pitchfork_env: dict[str, str]
+def test_register_exits_early_on_full_match(
+    checkout: Path, pitchfork_env: dict[str, str]
 ) -> None:
-    result = run_script(
-        "pitchfork-register",
-        pitchfork_env,
-        "app.worktree",
-        "--dir",
-        str(tmp_path),
-    )
-    assert result.returncode != 0
-    assert "without dots" in result.stderr
-    assert not (tmp_path / "pitchfork.local.toml").exists()
+    seed(pitchfork_env, '[settings.proxy]\ntld = "lab.example.dev"\n')
+    for _ in range(2):
+        result = register(pitchfork_env, "app", "--dir", str(checkout))
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "https://app.lab.example.dev\n"
+    assert calls(pitchfork_env) == [add_call("app", checkout)]
+
+
+def test_register_exits_early_when_daemon_equals_slug(
+    checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    for _ in range(2):
+        result = register(pitchfork_env, "dev", "--dir", str(checkout))
+        assert result.returncode == 0, result.stderr
+    assert calls(pitchfork_env) == [add_call("dev", checkout)]
+    assert read_config(pitchfork_env)["slugs"] == {"dev": {"namespace": "dev"}}
+
+
+@pytest.mark.parametrize(
+    ("slug", "expected"),
+    [
+        ("app.worktree", "app-worktree"),
+        ("My_App..Feature/X--", "my-app-feature-x"),
+        ("a" * 62 + ".b", "a" * 62),
+    ],
+)
+def test_register_normalizes_slug(
+    slug: str, expected: str, checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    result = register(pitchfork_env, slug, "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == f"https://{expected}.localhost\n"
+    assert local_namespace(checkout) == expected
+    assert calls(pitchfork_env) == [add_call(expected, checkout)]
+
+
+def test_register_rejects_empty_slug_without_changes(
+    checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    result = register(pitchfork_env, "._.", "--dir", str(checkout))
+    assert result.returncode == 2
+    assert "no letters or digits" in result.stderr
+    assert not (checkout / "pitchfork.local.toml").exists()
     assert not calls(pitchfork_env)
 
 
+@pytest.mark.parametrize(
+    "project_file",
+    ["pitchfork.toml", ".config/pitchfork.toml", ".config/pitchfork.local.toml"],
+)
 def test_register_rejects_conflicting_namespace_without_changes(
-    tmp_path: Path, pitchfork_env: dict[str, str]
+    project_file: str, tmp_path: Path, pitchfork_env: dict[str, str]
 ) -> None:
-    config = tmp_path / "pitchfork.toml"
+    config = tmp_path / project_file
+    config.parent.mkdir(exist_ok=True)
     config.write_text('namespace = "custom"\n[daemons.dev]\nrun = "sleep 60"\n')
-    result = run_script(
-        "pitchfork-register",
-        pitchfork_env,
-        "portfolio-animations",
-        "--dir",
-        str(tmp_path),
-    )
+    result = register(pitchfork_env, "portfolio-animations", "--dir", str(tmp_path))
     assert result.returncode != 0
     assert "declares namespace" in result.stderr
     assert not (tmp_path / "pitchfork.local.toml").exists()
     assert not calls(pitchfork_env)
+
+
+def test_register_repairs_missing_slug(
+    checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    seed(pitchfork_env, f'[namespaces.app]\ndir = "{checkout}"\n')
+    (checkout / "pitchfork.local.toml").write_text('namespace = "app"\n')
+    result = register(pitchfork_env, "app", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    assert calls(pitchfork_env) == [add_call("app", checkout)]
+    assert read_config(pitchfork_env)["slugs"] == {
+        "app": {"namespace": "app", "daemon": "dev"}
+    }
+
+
+def test_register_uses_hashed_name_on_collision(
+    tmp_path: Path, checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    other = tmp_path / "other"
+    other.mkdir()
+    slug = "skin-groove-intake-" + "x" * 40
+    seed(
+        pitchfork_env,
+        f'[slugs."{slug}"]\nnamespace = "{slug}"\ndaemon = "dev"\n'
+        f'[namespaces."{slug}"]\ndir = "{other}"\n',
+    )
+    results = [register(pitchfork_env, slug, "--dir", str(checkout)) for _ in "12"]
+    assert [result.returncode for result in results] == [0, 0], results[0].stderr
+    [call] = calls(pitchfork_env)
+    name = call[2]
+    assert re.fullmatch(f"{slug[:56]}-[0-9a-f]{{6}}", name)
+    assert call == add_call(name, checkout)
+    assert [result.stdout for result in results] == [f"https://{name}.localhost\n"] * 2
+    assert local_namespace(checkout) == name
+    config = read_config(pitchfork_env)
+    assert config["namespaces"] == {
+        slug: {"dir": str(other)},
+        name: {"dir": str(checkout)},
+    }
+
+
+def test_register_warns_on_collision(
+    tmp_path: Path, checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    other = tmp_path / "other"
+    other.mkdir()
+    seed(pitchfork_env, f'[namespaces.app]\ndir = "{other}"\n')
+    result = register(pitchfork_env, "app", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    assert "'app' belongs to another checkout" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        '[slugs.app]\ndir = "{other}"\ndaemon = "dev"\n',
+        '[slugs.App]\nnamespace = "x"\ndaemon = "dev"\n'
+        '[namespaces.x]\ndir = "{other}"\n',
+    ],
+    ids=["direct-dir", "case-variant"],
+)
+def test_register_keeps_live_slug_of_other_checkout(
+    entry: str, tmp_path: Path, checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    other = tmp_path / "other"
+    other.mkdir()
+    config = entry.format(other=other)
+    seed(pitchfork_env, config)
+    result = register(pitchfork_env, "app", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    [call] = calls(pitchfork_env)
+    assert re.fullmatch("app-[0-9a-f]{6}", call[2])
+    slugs = read_config(pitchfork_env)["slugs"]
+    assert {key: slugs[key] for key in slugs if key != call[2]} == (
+        tomllib.loads(config)["slugs"]
+    )
+
+
+def test_register_keeps_own_case_variant_when_name_is_taken(
+    tmp_path: Path, checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    other = tmp_path / "other"
+    other.mkdir()
+    seed(
+        pitchfork_env,
+        f'[slugs.App]\ndir = "{checkout}"\ndaemon = "dev"\n'
+        f'[namespaces.app]\ndir = "{other}"\n',
+    )
+    result = register(pitchfork_env, "app", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    [call] = calls(pitchfork_env)
+    assert re.fullmatch("app-[0-9a-f]{6}", call[2])
+    assert read_config(pitchfork_env)["slugs"]["App"] == {
+        "dir": str(checkout),
+        "daemon": "dev",
+    }
+
+
+@pytest.mark.parametrize(
+    ("entry", "kept"),
+    [
+        ('[slugs.app]\ndir = "{gone}"\ndaemon = "dev"\n', {}),
+        (
+            '[slugs.App]\ndir = "{checkout}"\ndaemon = "dev"\n'
+            '[slugs.keep]\ndir = "{checkout}"\ndaemon = "web"\n',
+            {"keep": {"dir": "{checkout}", "daemon": "web"}},
+        ),
+    ],
+    ids=["stale-direct-dir", "own-case-variant"],
+)
+def test_register_replaces_direct_dir_slug(
+    entry: str,
+    kept: dict,
+    tmp_path: Path,
+    checkout: Path,
+    pitchfork_env: dict[str, str],
+) -> None:
+    seed(pitchfork_env, entry.format(gone=tmp_path / "gone", checkout=checkout))
+    result = register(pitchfork_env, "app", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    assert calls(pitchfork_env) == [add_call("app", checkout)]
+    kept = {
+        key: {**value, "dir": str(checkout)} if "dir" in value else value
+        for key, value in kept.items()
+    }
+    assert read_config(pitchfork_env)["slugs"] == {
+        **kept,
+        "app": {"namespace": "app", "daemon": "dev"},
+    }
+
+
+def test_register_keeps_stale_namespace_with_attachments(
+    tmp_path: Path, checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    gone = tmp_path / "gone"
+    seed(pitchfork_env, f'[namespaces.app]\ndir = "{gone}"\nconfig = ["extra.toml"]\n')
+    result = register(pitchfork_env, "app", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    [call] = calls(pitchfork_env)
+    assert re.fullmatch("app-[0-9a-f]{6}", call[2])
+    assert read_config(pitchfork_env)["namespaces"]["app"] == {
+        "dir": str(gone),
+        "config": ["extra.toml"],
+    }
+
+
+def test_register_accepts_hand_registered_namespace(
+    checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    seed(
+        pitchfork_env,
+        '[slugs.app]\nnamespace = "team"\ndaemon = "dev"\n'
+        f'[namespaces.team]\ndir = "{checkout}"\n',
+    )
+    (checkout / "pitchfork.toml").write_text('namespace = "team"\n')
+    (checkout / "pitchfork.local.toml").write_text('namespace = "team"\n')
+    result = register(pitchfork_env, "app", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "https://app.localhost\n"
+    assert not calls(pitchfork_env)
+
+
+def test_register_replaces_stale_entry(
+    tmp_path: Path, checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    gone = tmp_path / "gone"
+    seed(
+        pitchfork_env,
+        '[slugs.app]\nnamespace = "old"\ndaemon = "dev"\n'
+        f'[namespaces.old]\ndir = "{gone}"\n[namespaces.app]\ndir = "{gone}"\n'
+        f'[namespaces.keep]\ndir = "{tmp_path}"\n',
+    )
+    result = register(pitchfork_env, "app", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    assert calls(pitchfork_env) == [add_call("app", checkout)]
+    assert read_config(pitchfork_env) == {
+        "slugs": {"app": {"namespace": "app", "daemon": "dev"}},
+        "namespaces": {
+            "keep": {"dir": str(tmp_path)},
+            "app": {"dir": str(checkout)},
+        },
+    }
+
+
+def test_remove_deletes_slugs_and_namespaces_of_dir(
+    tmp_path: Path, checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    seed(
+        pitchfork_env,
+        '[slugs.app]\nnamespace = "app"\ndaemon = "dev"\n'
+        '[slugs.alias]\nnamespace = "old"\ndaemon = "web"\n'
+        '[slugs.main]\nnamespace = "main"\ndaemon = "dev"\n'
+        f'[slugs.direct]\ndir = "{checkout}"\ndaemon = "dev"\n'
+        f'[namespaces.app]\ndir = "{checkout}"\n'
+        f'[namespaces.old]\ndir = "{checkout}/"\n'
+        f'[namespaces.main]\ndir = "{tmp_path}"\n'
+        f'[namespaces.attached]\ndir = "{checkout}"\nconfig = ["extra.toml"]\n'
+        "# Ünïcödé comment\n",
+    )
+    result = register(pitchfork_env, "--remove", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    assert sorted(calls(pitchfork_env)) == [
+        ["proxy", "remove", "alias"],
+        ["proxy", "remove", "app"],
+        ["proxy", "remove", "direct"],
+    ]
+    assert read_config(pitchfork_env) == {
+        "slugs": {"main": {"namespace": "main", "daemon": "dev"}},
+        "namespaces": {
+            "main": {"dir": str(tmp_path)},
+            "attached": {"dir": str(checkout), "config": ["extra.toml"]},
+        },
+    }
+
+
+def test_remove_without_match_exits_zero(
+    tmp_path: Path, checkout: Path, pitchfork_env: dict[str, str]
+) -> None:
+    config = (
+        '[slugs.main]\nnamespace = "main"\ndaemon = "dev"\n'
+        f'[namespaces.main]\ndir = "{tmp_path}"\n'
+    )
+    seed(pitchfork_env, config)
+    result = register(pitchfork_env, "--remove", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == ""
+    assert not calls(pitchfork_env)
+    assert config_path(pitchfork_env).read_text() == config
+
+
+def mise_which(tool: str) -> Path:
+    # A mise shim fails under a temporary HOME, because the config files there
+    # are not trusted, so find the real binary first.
+    found = subprocess.run(
+        ["mise", "which", tool], cwd=ROOT, capture_output=True, text=True, check=False
+    )
+    if found.returncode != 0 or not found.stdout.strip():
+        pytest.skip(f"{tool} is not installed")
+    return Path(found.stdout.strip())
+
+
+@pytest.mark.parametrize("config_dir", [None, "custom-config", "~/custom-config"])
+def test_register_and_remove_with_real_pitchfork(
+    config_dir: str | None, tmp_path: Path
+) -> None:
+    pitchfork = mise_which("pitchfork")
+    uv = mise_which("uv")
+    cache = subprocess.run(
+        [uv, "cache", "dir"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    home = tmp_path / "home"
+    env = {
+        **{k: v for k, v in os.environ.items() if not k.startswith("PITCHFORK_")},
+        "PATH": f"{pitchfork.parent}:{os.environ['PATH']}",
+        "HOME": str(home),
+        "XDG_CONFIG_HOME": str(tmp_path / "xdg-config"),
+        "XDG_STATE_HOME": str(tmp_path / "xdg-state"),
+        "UV_CACHE_DIR": cache,
+    }
+    config = home / ".config/pitchfork/config.toml"
+    if config_dir is not None:
+        if config_dir.startswith("~/"):
+            env["PITCHFORK_CONFIG_DIR"] = config_dir
+            config = home / config_dir[2:] / "config.toml"
+        else:
+            env["PITCHFORK_CONFIG_DIR"] = str(tmp_path / config_dir)
+            config = tmp_path / config_dir / "config.toml"
+    checkout = tmp_path / "app.worktree"
+    checkout.mkdir()
+
+    def run(*args: str) -> subprocess.CompletedProcess:
+        # The shebang runs `uv run --script`. Run it the same way, so the test
+        # covers the inline dependencies.
+        script = ROOT / "home/dot_local/bin/executable_pitchfork-register"
+        command = [uv, "run", "--quiet", "--python", sys.executable, "--script"]
+        return subprocess.run(
+            [*command, str(script), *args],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    result = run("app.worktree", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "https://app-worktree.localhost\n"
+    registered = tomllib.loads(config.read_text())
+    assert registered["slugs"] == {
+        "app-worktree": {"namespace": "app-worktree", "daemon": "dev"}
+    }
+    assert registered["namespaces"] == {"app-worktree": {"dir": str(checkout)}}
+    assert not (tmp_path / "xdg-config/pitchfork").exists()
+
+    result = run("--remove", "--dir", str(checkout))
+    assert result.returncode == 0, result.stderr
+    removed = tomllib.loads(config.read_text())
+    assert "slugs" not in removed
+    assert "namespaces" not in removed
+
+
+def test_repo_pins_the_global_pitchfork_version() -> None:
+    # CI installs only the repo tools, so the real pitchfork test needs this pin.
+    tools = tomllib.loads((ROOT / "mise.toml").read_text())["tools"]
+    assert tools["pitchfork"] == mise_tools()["pitchfork"]
 
 
 @pytest.fixture

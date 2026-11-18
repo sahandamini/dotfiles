@@ -17,3 +17,11 @@ disk: 160GiB
 mounts: []
 ssh:
   localPort: 60022
+provision:
+# Lima gives cloud-init a new instance ID on each cold start, and cloud-init
+# then replaces the SSH host keys. Keep them, so known_hosts stays valid.
+- mode: data
+  path: /etc/cloud/cloud.cfg.d/99-keep-ssh-host-keys.cfg
+  permissions: 644
+  content: |
+    ssh_deletekeys: false

@@ -2,5 +2,7 @@
 # Its postinstall script installs the binary.
 "npm:@opencode/cli" = { version = "latest", allow_builds = ["@opencode/cli"] }
 claude = "latest"
+# Its postinstall script installs the binary.
+"npm:coderabbit" = { version = "latest", allow_builds = ["coderabbit"] }
 codex = "latest"
 pi = "latest"

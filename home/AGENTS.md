@@ -80,6 +80,13 @@ If the changes are large and need a second pass, run 1 to 3 adversarial reviews
 with a subagent. Never run more than 3 reviews; findings degrade into noise
 after 3 rounds. CodeRabbit does not count toward this limit.
 
+CodeRabbit allows about 1 PR review each hour on free public repos. The CLI
+allows more. Before each PR review request, run
+`coderabbit review --agent --committed --base <base>` in the worktree. Fix real
+findings in the commit that owns them. If the CLI is not signed in, tell the
+user and continue. Push all fixes for a round at once. Do not push while a
+review runs: the new push cancels the review, but the review still counts.
+
 Request a CodeRabbit review with `@coderabbitai review`. In full-send, request
 it after green CI. In full-review, request it after the user gives feedback. Do
 not use CodeRabbit autofix. It adds commits outside the commit-per-concern

@@ -69,7 +69,7 @@ phase_apt() {
     sleep 2
   done
   apt_install 'Installing base packages' \
-    software-properties-common xz-utils zsh curl ca-certificates libcap2-bin procps
+    software-properties-common xz-utils unzip zsh curl ca-certificates libcap2-bin procps
   show_version Zsh 1 zsh --version
 }
 

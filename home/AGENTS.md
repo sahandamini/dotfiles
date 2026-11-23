@@ -121,15 +121,35 @@ PR.
 
 A PR is merge-ready when CodeRabbit approved it, all checks and deploys are
 green, and all threads are resolved. After a stack update, recheck each affected
-PR. Merge bottom-up with `gh pr merge <pr> --squash --delete-branch`. Before you
-merge the next PR, rebase its branch onto `main`, force-push it, and change its
-base with `gh pr edit <pr> --base main`.
+PR. Merge bottom-up with
+`gh pr merge <pr> --repo <owner>/<repo> --squash --delete-branch`. From another
+checkout, gh without `--repo` removes the task worktree and skips its `wt`
+hooks.
+
+Before you merge the next PR, update the stack. Before each rebase, run
+`git merge-base --fork-point <parent>` in that worktree. If it prints nothing,
+tell Sahand and stop. `<parent>` is the branch below.
+
+1. Run `git fetch origin`. If it fails, tell Sahand and stop. In the next PR's
+   worktree, run
+   `git rebase --fork-point --onto origin/main <branch-below>`.
+2. Restack each higher PR, from the bottom up. In its worktree, run
+   `git rebase --fork-point <parent>`.
+3. Force-push each rebased branch. Change the next PR's base with
+   `gh pr edit <pr> --base main`.
+
+`--fork-point` reads the parent branch reflog. It finds the true fork point
+after the parent was amended. `wt remove` deletes that reflog, so remove the
+lower worktree only after step 1.
 
 After the merge, remove the task worktree as the last action of the task:
 
-1. Run `wt remove <branch>` from outside the worktree. Never remove the main
-   checkout.
-2. Use the t3 MCP to settle the thread. Do not archive it.
+1. Run `git fetch --prune origin`. Then run
+   `wt remove --foreground <branch>` from outside the worktree. Remove
+   worktrees only with `wt remove`. Never remove the main checkout.
+2. If `wt` keeps the branch as unmerged, tell Sahand. Do not pass `-D` or
+   `-f`.
+3. Use the t3 MCP to settle the thread. Do not archive it.
 
 ## Style
 

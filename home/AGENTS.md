@@ -26,6 +26,27 @@ the server share no filesystem.
 - Use Worktrunk for task worktrees. Run `wt switch --create <branch>` to create
   one. In a non-interactive shell, read the printed path and use it as the
   working directory; `wt` cannot change the parent process directory.
+- Approve only the Worktrunk hooks on `main`. A hook on `main` passed review in
+  its PR. If `wt` fails with "Cannot prompt for approval", do these steps in the
+  main checkout:
+
+  1. If the main checkout is on `main`, run `git pull --ff-only origin main`.
+  2. Run `git show origin/main:.config/wt.toml | cmp - .config/wt.toml`.
+  3. If the checkout is not on `main`, or `git pull` or `cmp` fails, tell
+     Sahand. Also tell Sahand if `origin` is not a `sahandamini` or
+     `Skin-Groove` repo on `github.com`. In these cases, skip steps 4 and 5.
+  4. Run `wt config approvals add --yes`. Then retry the `wt` command from its
+     original directory.
+  5. If the retry fails, tell Sahand.
+
+  While you wait for Sahand, continue with work that does not need `wt`.
+
+- Never pass `--yes` or `--no-hooks` to `wt switch` or `wt remove`. `--yes`
+  runs hooks without review, and `--no-hooks` skips the hook that deletes the
+  dev URL.
+- If `wt switch --create` printed a dev URL, put that URL in each final report
+  until you remove the worktree. To find a lost URL, run
+  `pitchfork proxy status`. Remove `:9443` from the URL of the worktree.
 - Review the status and diff before each commit.
 - Keep each PR commit clean. To change existing work, amend the commit that owns
   the change: run `git commit --fixup=<sha>`, then
@@ -100,15 +121,35 @@ PR.
 
 A PR is merge-ready when CodeRabbit approved it, all checks and deploys are
 green, and all threads are resolved. After a stack update, recheck each affected
-PR. Merge bottom-up with `gh pr merge <pr> --squash --delete-branch`. Before you
-merge the next PR, rebase its branch onto `main`, force-push it, and change its
-base with `gh pr edit <pr> --base main`.
+PR. Merge bottom-up with
+`gh pr merge <pr> --repo <owner>/<repo> --squash --delete-branch`. From another
+checkout, gh without `--repo` removes the task worktree and skips its `wt`
+hooks.
+
+Before you merge the next PR, update the stack. Before each rebase, run
+`git merge-base --fork-point <parent>` in that worktree. If it prints nothing,
+tell Sahand and stop. `<parent>` is the branch below.
+
+1. Run `git fetch origin`. If it fails, tell Sahand and stop. In the next PR's
+   worktree, run
+   `git rebase --fork-point --onto origin/main <branch-below>`.
+2. Restack each higher PR, from the bottom up. In its worktree, run
+   `git rebase --fork-point <parent>`.
+3. Force-push each rebased branch. Change the next PR's base with
+   `gh pr edit <pr> --base main`.
+
+`--fork-point` reads the parent branch reflog. It finds the true fork point
+after the parent was amended. `wt remove` deletes that reflog, so remove the
+lower worktree only after step 1.
 
 After the merge, remove the task worktree as the last action of the task:
 
-1. Run `wt remove <branch>` from outside the worktree. Never remove the main
-   checkout.
-2. Use the t3 MCP to settle the thread. Do not archive it.
+1. Run `git fetch --prune origin`. Then run
+   `wt remove --foreground <branch>` from outside the worktree. Remove
+   worktrees only with `wt remove`. Never remove the main checkout.
+2. If `wt` keeps the branch as unmerged, tell Sahand. Do not pass `-D` or
+   `-f`.
+3. Use the t3 MCP to settle the thread. Do not archive it.
 
 ## Style
 

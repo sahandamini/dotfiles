@@ -44,6 +44,9 @@ the server share no filesystem.
 - Never pass `--yes` or `--no-hooks` to `wt switch` or `wt remove`. `--yes`
   runs hooks without review, and `--no-hooks` skips the hook that deletes the
   dev URL.
+- If `wt switch --create` printed a dev URL, put that URL in each final report
+  until you remove the worktree. To find a lost URL, run
+  `pitchfork proxy status`. Remove `:9443` from the URL of the worktree.
 - Review the status and diff before each commit.
 - Keep each PR commit clean. To change existing work, amend the commit that owns
   the change: run `git commit --fixup=<sha>`, then
